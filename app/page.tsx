@@ -12,7 +12,6 @@ export default function Home() {
   }, [])
 
   const fetchLogs = async () => {
-    // ดึงข้อมูลผลงานทั้งหมด เรียงจากใหม่ไปเก่า
     const { data, error } = await supabase
       .from('bite_logs')
       .select('*')
@@ -40,18 +39,31 @@ export default function Home() {
             <Link href="/add-log" className="text-yellow-500 hover:underline">ไปบันทึกผลงานตัวแรกกันเลย!</Link>
           </div>
         ) : (
-          <div className="space-y-4">
+          <div className="space-y-6">
             {logs.map((log) => (
-              <div key={log.id} className="p-6 bg-stone-800 rounded-lg shadow-xl border border-stone-700 hover:border-yellow-600 transition-colors">
-                <div className="flex justify-between items-start mb-4 border-b border-stone-700 pb-2">
-                  <h2 className="text-2xl font-bold text-white">{log.fish_name}</h2>
-                  <span className="text-sm text-stone-400">{new Date(log.created_at).toLocaleDateString('th-TH')}</span>
-                </div>
-                <div className="grid grid-cols-2 gap-4 text-stone-300">
-                  <p><span className="text-stone-500 text-sm block">น้ำหนัก</span> {log.weight ? `${log.weight} กก.` : '-'}</p>
-                  <p><span className="text-stone-500 text-sm block">ความยาว</span> {log.length ? `${log.length} ซม.` : '-'}</p>
-                  <p><span className="text-stone-500 text-sm block">หมายตกปลา</span> {log.location_name || 'ไม่ระบุ'}</p>
-                  <p><span className="text-stone-500 text-sm block">เหยื่อที่ใช้</span> {log.lure_used || 'ไม่ระบุ'}</p>
+              <div key={log.id} className="overflow-hidden bg-stone-800 rounded-lg shadow-xl border border-stone-700 hover:border-yellow-600 transition-colors">
+                {/* แสดงรูปภาพถ้ามี */}
+                {log.image_url && (
+                  <div className="w-full h-64 bg-stone-950 overflow-hidden relative border-b border-stone-700">
+                    <img 
+                      src={log.image_url} 
+                      alt={log.fish_name}
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                )}
+                
+                <div className="p-6">
+                  <div className="flex justify-between items-start mb-4 border-b border-stone-700 pb-2">
+                    <h2 className="text-2xl font-bold text-white">{log.fish_name}</h2>
+                    <span className="text-sm text-stone-400">{new Date(log.created_at).toLocaleDateString('th-TH')}</span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4 text-stone-300">
+                    <p><span className="text-stone-500 text-sm block">น้ำหนัก</span> {log.weight ? `${log.weight} กก.` : '-'}</p>
+                    <p><span className="text-stone-500 text-sm block">ความยาว</span> {log.length ? `${log.length} ซม.` : '-'}</p>
+                    <p><span className="text-stone-500 text-sm block">หมายตกปลา</span> {log.location_name || 'ไม่ระบุ'}</p>
+                    <p><span className="text-stone-500 text-sm block">เหยื่อที่ใช้</span> {log.lure_used || 'ไม่ระบุ'}</p>
+                  </div>
                 </div>
               </div>
             ))}
