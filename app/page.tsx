@@ -13,6 +13,7 @@ export default function Home() {
   const [myDisplayName, setMyDisplayName] = useState('')
   const [isEditingProfile, setIsEditingProfile] = useState(false)
   const [newProfileName, setNewProfileName] = useState('')
+  const [searchQuery, setSearchQuery] = useState('')
 
   useEffect(() => {
     initHome()
@@ -81,8 +82,28 @@ export default function Home() {
   const displayedLogs = viewMode === 'all' ? logs : logs.filter((log) => log.user_id === currentUserId)
   
   const myLogs = logs.filter((log) => log.user_id === currentUserId)
-  const currentLogsForStats = viewMode === 'all' ? logs : myLogs
-  const totalWeight = currentLogsForStats.reduce((sum, log) => sum + (log.weight || 0), 0)
+
+  // 🔍 กรองตามช่องค้นหา
+  const filteredLogs = displayedLogs.filter((log) => {
+    const query = searchQuery.toLowerCase().trim()
+    if (!query) return true
+    
+    const fishName = log.fish_name?.toLowerCase() || ''
+    const locationName = log.location_name?.toLowerCase() || ''
+    const lureUsed = log.lure_used?.toLowerCase() || ''
+    const displayName = log.profiles?.display_name?.toLowerCase() || ''
+    const authorName = log.author_name?.toLowerCase() || ''
+    
+    return (
+      fishName.includes(query) ||
+      locationName.includes(query) ||
+      lureUsed.includes(query) ||
+      displayName.includes(query) ||
+      authorName.includes(query)
+    )
+  })
+
+  const totalWeight = filteredLogs.reduce((sum, log) => sum + (log.weight || 0), 0)
   
   // 💡 ปรับการคำนวณสถิติให้เขียนถูกหลัก TypeScript แบบเข้มงวดที่สุด
   const getMostFrequent = (arr: any[], key: string) => {
@@ -97,8 +118,8 @@ export default function Home() {
     return sorted.length > 0 ? sorted[0][0] : '-'
   }
 
-  const topLure = getMostFrequent(currentLogsForStats, 'lure_used')
-  const topLocation = getMostFrequent(currentLogsForStats, 'location_name')
+  const topLure = getMostFrequent(filteredLogs, 'lure_used')
+  const topLocation = getMostFrequent(filteredLogs, 'location_name')
 
   return (
     <main className="flex min-h-screen flex-col items-center py-12 px-4 bg-stone-900 text-stone-200">
@@ -136,13 +157,35 @@ export default function Home() {
           <button onClick={() => setViewMode('mine')} className={`flex-1 py-2.5 text-sm font-bold rounded transition-colors ${viewMode === 'mine' ? 'bg-yellow-600 text-stone-900 shadow' : 'text-stone-400 hover:text-stone-200'}`}>👤 ผลงานของฉัน ({myLogs.length})</button>
         </div>
 
-        {currentLogsForStats.length > 0 && (
+        {/* 🔍 ช่องค้นหาผลงาน */}
+        <div className="mb-6 relative">
+          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+            <span className="text-stone-400 text-sm">🔍</span>
+          </div>
+          <input
+            type="text"
+            placeholder="ค้นหาตามชื่อปลา, หมายตกปลา, เหยื่อที่ใช้ หรือชื่อผู้โพสต์..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full pl-9 pr-4 py-2.5 bg-stone-800 border border-stone-700 rounded-lg text-sm text-stone-200 placeholder-stone-500 focus:outline-none focus:border-yellow-500 focus:ring-1 focus:ring-yellow-500 transition-all duration-200 shadow-md"
+          />
+          {searchQuery && (
+            <button
+              onClick={() => setSearchQuery('')}
+              className="absolute inset-y-0 right-0 pr-3 flex items-center text-stone-500 hover:text-stone-300 text-xs font-bold transition-colors"
+            >
+              เคลียร์
+            </button>
+          )}
+        </div>
+
+        {displayedLogs.length > 0 && (
           <div className="mb-8 grid grid-cols-2 md:grid-cols-4 gap-3">
             <div className="bg-stone-800 p-4 rounded-lg border border-stone-700 text-center shadow-lg">
               <p className="text-stone-400 text-[11px] mb-1">
                 {viewMode === 'all' ? '🎣 ผลงานรวมในเว็บ' : '🎣 ผลงานของฉัน'}
               </p>
-              <p className="text-2xl font-bold text-white">{currentLogsForStats.length} <span className="text-xs font-normal text-stone-500">ตัว</span></p>
+              <p className="text-2xl font-bold text-white">{filteredLogs.length} <span className="text-xs font-normal text-stone-500">ตัว</span></p>
             </div>
             <div className="bg-stone-800 p-4 rounded-lg border border-stone-700 text-center shadow-lg">
               <p className="text-stone-400 text-[11px] mb-1">
@@ -171,9 +214,14 @@ export default function Home() {
           <div className="text-center p-8 bg-stone-800 rounded-lg border border-stone-700 shadow-xl">
             <p className="text-stone-400 mb-4">{viewMode === 'all' ? 'สมุดบันทึกยังว่างเปล่า' : 'คุณยังไม่มีบันทึกผลงานของตัวเองเลยครับ'}</p>
           </div>
+        ) : filteredLogs.length === 0 ? (
+          <div className="text-center p-8 bg-stone-800 rounded-lg border border-stone-700 shadow-xl">
+            <p className="text-stone-400 mb-2">🔍 ไม่พบผลงานที่ตรงกับคำค้นหาของคุณ</p>
+            <p className="text-stone-500 text-xs">ลองค้นหาคำอื่น เช่น ช่อน, กบยาง, หรือสถานที่ตกปลา</p>
+          </div>
         ) : (
           <div className="space-y-6">
-            {displayedLogs.map((log) => {
+            {filteredLogs.map((log) => {
               const likeCount = log.likes?.length || 0;
               const hasLiked = log.likes?.some((like: any) => like.user_id === currentUserId);
 
