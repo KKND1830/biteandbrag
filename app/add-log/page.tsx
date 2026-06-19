@@ -1,6 +1,7 @@
 'use client'
 import { useState } from 'react'
 import { supabase } from '../../utils/supabase'
+import Link from 'next/link'
 
 export default function AddLog() {
   const [fishName, setFishName] = useState('')
@@ -17,7 +18,6 @@ export default function AddLog() {
     setLoading(true)
     setMessage('กำลังบันทึกข้อมูลและอัปโหลดรูปภาพ...')
 
-    // 1. เช็คผู้ใช้งาน
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) {
       setMessage('❌ กรุณาเข้าสู่ระบบก่อนบันทึกผลงานครับ')
@@ -25,9 +25,18 @@ export default function AddLog() {
       return
     }
 
+    // 💡 ไปดึงชื่อโปรไฟล์ปัจจุบันจากตาราง profiles มาบันทึกพร้อมโพสต์
+    const { data: profData } = await supabase
+      .from('profiles')
+      .select('display_name')
+      .eq('id', user.id)
+      .single()
+      
+    // ถ้าตั้งชื่อไว้ให้ใช้ชื่อนั้น ถ้ายังไม่ตั้งให้ใช้ Email ส่วนหน้า
+    const authorName = profData?.display_name || (user.email ? user.email.split('@')[0] : 'นักตกปลา')
+
     let publicImageUrl = null
 
-    // 2. ถ้ามีการเลือกรูปภาพ ให้ทำการอัปโหลดก่อน
     if (imageFile) {
       const fileExt = imageFile.name.split('.').pop()
       const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`
@@ -43,15 +52,14 @@ export default function AddLog() {
         return
       }
 
-      // ดึงลิงก์รูปภาพที่เป็นสาธารณะ
       const { data } = supabase.storage.from('bite-images').getPublicUrl(filePath)
       publicImageUrl = data.publicUrl
     }
 
-    // 3. ส่งข้อมูลทั้งหมดเข้าตาราง bite_logs
     const { error } = await supabase.from('bite_logs').insert([
       { 
         user_id: user.id, 
+        author_name: authorName,
         fish_name: fishName, 
         weight: weight ? parseFloat(weight) : null, 
         length: length ? parseFloat(length) : null, 
@@ -64,7 +72,7 @@ export default function AddLog() {
     if (error) {
       setMessage('❌ บันทึกไม่สำเร็จ: ' + error.message)
     } else {
-      setMessage('✅ บันทึกผลงานพร้อมรูปภาพสำเร็จแล้ว! หมานๆ ครับ')
+      setMessage('✅ บันทึกผลงานสำเร็จแล้ว! หมานๆ ครับ')
       setFishName(''); setWeight(''); setLength(''); setLocation(''); setLure(''); setImageFile(null);
     }
     setLoading(false)
@@ -73,7 +81,10 @@ export default function AddLog() {
   return (
     <main className="flex min-h-screen flex-col items-center py-12 px-4 bg-stone-900 text-stone-200">
       <div className="w-full max-w-lg p-8 bg-stone-800 rounded-lg shadow-xl border border-stone-700">
-        <h1 className="text-3xl font-bold text-yellow-500 mb-8 text-center">บันทึกผลงานตกปลา 📸</h1>
+        <div className="flex justify-between items-center mb-8">
+          <h1 className="text-3xl font-bold text-yellow-500">บันทึกผลงาน 📸</h1>
+          <Link href="/" className="text-stone-400 hover:text-white">กลับหน้าหลัก</Link>
+        </div>
         
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
@@ -104,7 +115,7 @@ export default function AddLog() {
           <div>
             <label className="block mb-1 text-sm text-stone-400">เหยื่อที่ใช้</label>
             <input type="text" value={lure} onChange={(e) => setLure(e.target.value)}
-              className="w-full p-3 bg-stone-700 rounded text-white focus:ring-2 focus:ring-yellow-500" placeholder="เช่น กบยาง, ปลายาง" />
+              className="w-full p-3 bg-stone-700 rounded text-white focus:ring-2 focus:ring-yellow-500" placeholder="เช่น กบยาง" />
           </div>
 
           <div>
