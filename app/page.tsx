@@ -72,6 +72,26 @@ export default function Home() {
     }
   }
 
+  const handleLogout = async () => {
+    const confirmLogout = window.confirm('ต้องการออกจากระบบใช่หรือไม่? 🚪')
+    if (!confirmLogout) return
+    await supabase.auth.signOut()
+    setCurrentUserId(null)
+    setCurrentUserEmail(null)
+    setMyDisplayName('')
+    setNewProfileName('')
+    setViewMode('all')
+    
+    // โหลดข้อมูลผลงานใหม่ในฐานะ Guest
+    setLoading(true)
+    const { data } = await supabase
+      .from('bite_logs')
+      .select('*, profiles(display_name), likes(user_id)')
+      .order('created_at', { ascending: false })
+    if (data) setLogs(data)
+    setLoading(false)
+  }
+
   const handleDelete = async (id: string) => {
     const confirmDelete = window.confirm('ต้องการลบผลงานนี้ใช่หรือไม่? 🗑️')
     if (!confirmDelete) return
@@ -122,35 +142,79 @@ export default function Home() {
   const topLocation = getMostFrequent(filteredLogs, 'location_name')
 
   return (
-    <main className="flex min-h-screen flex-col items-center py-12 px-4 bg-stone-900 text-stone-200">
-      <div className="w-full max-w-2xl">
-        
-        <div className="flex justify-between items-start mb-6 border-b border-stone-800 pb-6">
-          <div>
-            <h1 className="text-4xl font-bold text-yellow-500 mb-3">Bite & Brag 🎣</h1>
-            {currentUserEmail && (
-              <div className="bg-stone-800 border border-stone-700 rounded-lg p-3 shadow-sm">
-                {isEditingProfile ? (
-                  <div className="flex gap-2 items-center">
-                    <input type="text" value={newProfileName} onChange={(e) => setNewProfileName(e.target.value)} className="p-1.5 bg-stone-700 rounded text-white text-xs border border-yellow-500 focus:outline-none" />
-                    <button onClick={handleUpdateProfile} className="bg-green-600 text-white text-xs px-2 py-1.5 rounded font-bold hover:bg-green-500">บันทึก</button>
-                    <button onClick={() => setIsEditingProfile(false)} className="bg-stone-600 text-stone-200 text-xs px-2 py-1.5 rounded hover:bg-stone-500">ยกเลิก</button>
-                  </div>
-                ) : (
-                  <div className="text-xs space-y-1">
-                    <p className="text-stone-400">🟢 บัญชีออนไลน์ในโปรไฟล์นี้:</p>
-                    <p className="text-sm font-bold text-white">👑 นามแฝง: <span className="text-yellow-400">{myDisplayName}</span></p>
-                    <p className="text-stone-500 text-[11px]">({currentUserEmail})</p>
-                    <button onClick={() => setIsEditingProfile(true)} className="text-yellow-500 hover:underline text-[11px] font-semibold mt-1 block">✏️ แก้ไขชื่อนามแฝงโปรไฟล์ของคุณ</button>
-                  </div>
-                )}
+    <main className="flex min-h-screen flex-col items-center pt-24 pb-12 px-4 bg-stone-900 text-stone-200">
+      {/* 🧭 Navigation Bar (Fixed Top) */}
+      <nav className="w-full bg-stone-950/90 backdrop-blur-md border-b border-stone-800 fixed top-0 left-0 z-50 px-4 py-3.5 flex justify-center shadow-lg">
+        <div className="w-full max-w-2xl flex justify-between items-center">
+          <Link href="/" className="text-xl font-black text-yellow-500 tracking-wider flex items-center gap-2">
+            <span>🎣</span> Bite & Brag
+          </Link>
+          
+          <div className="flex items-center gap-3">
+            {currentUserEmail ? (
+              <div className="flex items-center gap-3">
+                <span className="hidden md:inline text-xs text-stone-400">
+                  สวัสดี, <strong className="text-yellow-400">{myDisplayName}</strong> 👑
+                </span>
+                <Link href="/add-log" className="bg-yellow-600 hover:bg-yellow-500 text-stone-900 text-xs font-bold py-2 px-3 rounded transition-all shadow-md">
+                  + เพิ่มผลงาน
+                </Link>
+                <button 
+                  onClick={handleLogout}
+                  className="bg-stone-850 hover:bg-stone-800 border border-stone-700 text-stone-300 text-xs font-bold py-2 px-3 rounded transition-all hover:text-white"
+                >
+                  ออกจากระบบ 🚪
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-3">
+                <Link href="/add-log" className="bg-stone-850 hover:bg-stone-800 border border-stone-700 text-stone-300 text-xs font-bold py-2 px-3 rounded transition-all">
+                  + เพิ่มผลงาน
+                </Link>
+                <Link href="/login" className="bg-yellow-600 hover:bg-yellow-500 text-stone-900 text-xs font-bold py-2 px-4.5 rounded transition-all shadow-lg">
+                  เข้าสู่ระบบ 🔑
+                </Link>
               </div>
             )}
           </div>
-          <Link href="/add-log" className="bg-yellow-600 hover:bg-yellow-500 text-stone-900 font-bold py-2 px-4 rounded transition-colors shadow-lg">
-            + เพิ่มผลงาน
-          </Link>
         </div>
+      </nav>
+
+      <div className="w-full max-w-2xl">
+        
+        <div className="flex justify-between items-end mb-6 border-b border-stone-800 pb-6">
+          <div>
+            <h1 className="text-3xl font-extrabold text-white mb-2">บันทึกความภูมิใจของนักตกปลา 🌊</h1>
+            <p className="text-stone-400 text-sm">แชร์รูปปลา หมายเด็ด และเหยื่อหมานของเหล่ายอดฝีมือ</p>
+          </div>
+        </div>
+        
+        {currentUserEmail && (
+          <div className="mb-6 bg-stone-800/40 border border-stone-700/50 rounded-lg p-4 shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-3">
+            <div>
+              <p className="text-xs text-stone-500 mb-1">🟢 บัญชีใช้งานในเครื่องนี้:</p>
+              <div className="flex items-baseline gap-2">
+                <span className="text-sm font-bold text-stone-200">👑 นามแฝง: <span className="text-yellow-400 text-base">{myDisplayName}</span></span>
+                <span className="text-stone-500 text-xs">({currentUserEmail})</span>
+              </div>
+            </div>
+            {isEditingProfile ? (
+              <div className="flex gap-2 items-center w-full md:w-auto">
+                <input 
+                  type="text" 
+                  value={newProfileName} 
+                  onChange={(e) => setNewProfileName(e.target.value)} 
+                  className="flex-1 md:flex-initial p-1.5 bg-stone-700 rounded text-white text-xs border border-yellow-500 focus:outline-none" 
+                  placeholder="ใส่นามแฝงใหม่"
+                />
+                <button onClick={handleUpdateProfile} className="bg-green-600 hover:bg-green-500 text-white text-xs px-2.5 py-1.5 rounded font-bold transition-colors">บันทึก</button>
+                <button onClick={() => setIsEditingProfile(false)} className="bg-stone-650 hover:bg-stone-600 text-stone-200 text-xs px-2.5 py-1.5 rounded transition-colors">ยกเลิก</button>
+              </div>
+            ) : (
+              <button onClick={() => setIsEditingProfile(true)} className="text-yellow-500 hover:text-yellow-400 hover:underline text-xs font-semibold">✏️ แก้ไขชื่อนามแฝงโปรไฟล์</button>
+            )}
+          </div>
+        )}
 
         <div className="flex gap-2 mb-6 bg-stone-800 p-1 rounded-lg border border-stone-700 shadow-md">
           <button onClick={() => setViewMode('all')} className={`flex-1 py-2.5 text-sm font-bold rounded transition-colors ${viewMode === 'all' ? 'bg-yellow-600 text-stone-900 shadow' : 'text-stone-400 hover:text-stone-200'}`}>🌍 ผลงานรวมในเว็บ ({logs.length})</button>

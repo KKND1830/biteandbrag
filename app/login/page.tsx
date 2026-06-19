@@ -1,6 +1,7 @@
 'use client'
 import { useState } from 'react'
 import { supabase } from '../../utils/supabase'
+import Link from 'next/link'
 
 export default function Login() {
   const [email, setEmail] = useState('')
@@ -39,6 +40,12 @@ export default function Login() {
   return (
     <main className="flex min-h-screen flex-col items-center justify-center bg-stone-900 text-stone-200">
       <div className="w-full max-w-md p-8 bg-stone-800 rounded-lg shadow-xl border border-stone-700">
+        <div className="flex justify-between items-center mb-6">
+          <Link href="/" className="text-stone-400 hover:text-white text-sm flex items-center gap-1 transition-colors">
+            <span>⬅️</span> กลับหน้าหลัก
+          </Link>
+          <span className="text-yellow-500 font-bold text-sm">Bite & Brag 🎣</span>
+        </div>
         <h1 className="text-3xl font-bold text-yellow-500 mb-6 text-center">ลงทะเบียนนักตกปลา 🎣</h1>
         
         <input 

@@ -81,9 +81,11 @@ export default function AddLog() {
   return (
     <main className="flex min-h-screen flex-col items-center py-12 px-4 bg-stone-900 text-stone-200">
       <div className="w-full max-w-lg p-8 bg-stone-800 rounded-lg shadow-xl border border-stone-700">
-        <div className="flex justify-between items-center mb-8">
-          <h1 className="text-3xl font-bold text-yellow-500">บันทึกผลงาน 📸</h1>
-          <Link href="/" className="text-stone-400 hover:text-white">กลับหน้าหลัก</Link>
+        <div className="flex justify-between items-center mb-8 border-b border-stone-750 pb-4">
+          <h1 className="text-2xl font-bold text-yellow-500">บันทึกผลงาน 📸</h1>
+          <Link href="/" className="text-stone-400 hover:text-white text-sm flex items-center gap-1 transition-colors">
+            <span>⬅️</span> กลับหน้าหลัก
+          </Link>
         </div>
         
         <form onSubmit={handleSubmit} className="space-y-4">
