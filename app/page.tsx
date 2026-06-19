@@ -34,7 +34,6 @@ export default function Home() {
     if (error) {
       alert('❌ ลบไม่สำเร็จ: ' + error.message)
     } else {
-      // ถ้าลบในฐานข้อมูลสำเร็จ ให้เอาออกจากการแสดงผลหน้าเว็บด้วย
       setLogs(logs.filter((log) => log.id !== id))
     }
   }
@@ -76,6 +75,15 @@ export default function Home() {
                     <h2 className="text-2xl font-bold text-white">{log.fish_name}</h2>
                     <div className="flex items-center gap-4">
                       <span className="text-sm text-stone-400">{new Date(log.created_at).toLocaleDateString('th-TH')}</span>
+                      
+                      {/* ปุ่มแก้ไข */}
+                      <Link 
+                        href={`/edit-log/${log.id}`} 
+                        className="text-blue-400 hover:text-blue-300 text-sm font-semibold transition-colors"
+                      >
+                        แก้ไข
+                      </Link>
+
                       {/* ปุ่มลบ */}
                       <button 
                         onClick={() => handleDelete(log.id)}
