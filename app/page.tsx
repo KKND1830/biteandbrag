@@ -81,7 +81,8 @@ export default function Home() {
   const displayedLogs = viewMode === 'all' ? logs : logs.filter((log) => log.user_id === currentUserId)
   
   const myLogs = logs.filter((log) => log.user_id === currentUserId)
-  const totalWeight = myLogs.reduce((sum, log) => sum + (log.weight || 0), 0)
+  const currentLogsForStats = viewMode === 'all' ? logs : myLogs
+  const totalWeight = currentLogsForStats.reduce((sum, log) => sum + (log.weight || 0), 0)
   
   // 💡 ปรับการคำนวณสถิติให้เขียนถูกหลัก TypeScript แบบเข้มงวดที่สุด
   const getMostFrequent = (arr: any[], key: string) => {
@@ -96,8 +97,8 @@ export default function Home() {
     return sorted.length > 0 ? sorted[0][0] : '-'
   }
 
-  const topLure = getMostFrequent(myLogs, 'lure_used')
-  const topLocation = getMostFrequent(myLogs, 'location_name')
+  const topLure = getMostFrequent(currentLogsForStats, 'lure_used')
+  const topLocation = getMostFrequent(currentLogsForStats, 'location_name')
 
   return (
     <main className="flex min-h-screen flex-col items-center py-12 px-4 bg-stone-900 text-stone-200">
@@ -135,22 +136,30 @@ export default function Home() {
           <button onClick={() => setViewMode('mine')} className={`flex-1 py-2.5 text-sm font-bold rounded transition-colors ${viewMode === 'mine' ? 'bg-yellow-600 text-stone-900 shadow' : 'text-stone-400 hover:text-stone-200'}`}>👤 ผลงานของฉัน ({myLogs.length})</button>
         </div>
 
-        {viewMode === 'mine' && myLogs.length > 0 && (
+        {currentLogsForStats.length > 0 && (
           <div className="mb-8 grid grid-cols-2 md:grid-cols-4 gap-3">
             <div className="bg-stone-800 p-4 rounded-lg border border-stone-700 text-center shadow-lg">
-              <p className="text-stone-400 text-[11px] mb-1">🎣 ผลงานทั้งหมด</p>
-              <p className="text-2xl font-bold text-white">{myLogs.length} <span className="text-xs font-normal text-stone-500">ตัว</span></p>
+              <p className="text-stone-400 text-[11px] mb-1">
+                {viewMode === 'all' ? '🎣 ผลงานรวมในเว็บ' : '🎣 ผลงานของฉัน'}
+              </p>
+              <p className="text-2xl font-bold text-white">{currentLogsForStats.length} <span className="text-xs font-normal text-stone-500">ตัว</span></p>
             </div>
             <div className="bg-stone-800 p-4 rounded-lg border border-stone-700 text-center shadow-lg">
-              <p className="text-stone-400 text-[11px] mb-1">⚖️ น้ำหนักรวม</p>
+              <p className="text-stone-400 text-[11px] mb-1">
+                {viewMode === 'all' ? '⚖️ น้ำหนักรวมทั้งหมด' : '⚖️ น้ำหนักรวมของฉัน'}
+              </p>
               <p className="text-2xl font-bold text-yellow-500">{totalWeight.toFixed(2)} <span className="text-xs font-normal text-stone-500">กก.</span></p>
             </div>
             <div className="bg-stone-800 p-4 rounded-lg border border-stone-700 text-center shadow-lg flex flex-col justify-center">
-              <p className="text-stone-400 text-[11px] mb-1">🐛 เหยื่อหมานสุด</p>
+              <p className="text-stone-400 text-[11px] mb-1">
+                {viewMode === 'all' ? '🐛 เหยื่อยอดนิยม' : '🐛 เหยื่อหมานสุด'}
+              </p>
               <p className="text-sm font-bold text-white truncate px-1">{topLure}</p>
             </div>
             <div className="bg-stone-800 p-4 rounded-lg border border-stone-700 text-center shadow-lg flex flex-col justify-center">
-              <p className="text-stone-400 text-[11px] mb-1">📍 หมายประจำ</p>
+              <p className="text-stone-400 text-[11px] mb-1">
+                {viewMode === 'all' ? '📍 หมายยอดฮิต' : '📍 หมายประจำ'}
+              </p>
               <p className="text-sm font-bold text-white truncate px-1">{topLocation}</p>
             </div>
           </div>
