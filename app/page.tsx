@@ -10,7 +10,6 @@ export default function Home() {
   const [currentUserEmail, setCurrentUserEmail] = useState<string | null>(null)
   const [viewMode, setViewMode] = useState<'all' | 'mine'>('all')
   
-  // State สำหรับระบบโปรไฟล์
   const [myDisplayName, setMyDisplayName] = useState('')
   const [isEditingProfile, setIsEditingProfile] = useState(false)
   const [newProfileName, setNewProfileName] = useState('')
@@ -22,13 +21,12 @@ export default function Home() {
   const initHome = async () => {
     setLoading(true)
     
-    // 1. เช็คข้อมูลผู้ใช้งานที่กำลังออนไลน์
     const { data: { user } } = await supabase.auth.getUser()
     if (user) {
       setCurrentUserId(user.id)
-      setCurrentUserEmail(user.email)
+      // 💡 ซ่อม Error ตรงนี้: ถ้าไม่มี email ให้ส่งค่า null กลับไป
+      setCurrentUserEmail(user.email || null)
       
-      // ดึงชื่อโปรไฟล์ที่ตั้งไว้จากตาราง profiles
       const { data: profData } = await supabase
         .from('profiles')
         .select('display_name')
@@ -39,14 +37,12 @@ export default function Home() {
         setMyDisplayName(profData.display_name)
         setNewProfileName(profData.display_name)
       } else {
-        // ถ้ายังไม่ได้ตั้งชื่อ ให้ดึงส่วนแรกของ email เป็นค่าเริ่มต้นก่อน
         const defaultName = user.email ? user.email.split('@')[0] : 'นักตกปลา'
         setMyDisplayName(defaultName)
         setNewProfileName(defaultName)
       }
     }
 
-    // 2. ดึงข้อมูลผลงาน โดยดึงชื่อโปรไฟล์ของคนโพสต์มาเชื่อมโยงกันด้วย (Relational Join)
     const { data, error } = await supabase
       .from('bite_logs')
       .select('*, profiles(display_name)')
@@ -56,7 +52,6 @@ export default function Home() {
     setLoading(false)
   }
 
-  // ฟังก์ชันอัปเดตชื่อโปรไฟล์ตัวเอง
   const handleUpdateProfile = async () => {
     if (!newProfileName.trim()) return
     
@@ -70,12 +65,10 @@ export default function Home() {
     } else {
       setMyDisplayName(newProfileName)
       setIsEditingProfile(false)
-      // โหลดข้อมูลหน้าจอใหม่เพื่ออัปเดตชื่อบนการ์ดทั้งหมด
       initHome()
     }
   }
 
-  // ฟังก์ชันสำหรับลบผลงาน
   const handleDelete = async (id: string) => {
     const confirmDelete = window.confirm('ต้องการลบผลงานนี้ใช่หรือไม่? 🗑️')
     if (!confirmDelete) return
@@ -93,7 +86,6 @@ export default function Home() {
     <main className="flex min-h-screen flex-col items-center py-12 px-4 bg-stone-900 text-stone-200">
       <div className="w-full max-w-2xl">
         
-        {/* 👤 ส่วนหัวเว็บ + ระบบจัดการโปรไฟล์ผู้ใช้งานออนไลน์ */}
         <div className="flex justify-between items-start mb-6 border-b border-stone-800 pb-6">
           <div>
             <h1 className="text-4xl font-bold text-yellow-500 mb-3">Bite & Brag 🎣</h1>
@@ -133,7 +125,6 @@ export default function Home() {
           </Link>
         </div>
 
-        {/* ปุ่มสลับแท็บแสดงผล */}
         <div className="flex gap-2 mb-8 bg-stone-800 p-1 rounded-lg border border-stone-700 shadow-md">
           <button onClick={() => setViewMode('all')} className={`flex-1 py-2.5 text-sm font-bold rounded transition-colors ${viewMode === 'all' ? 'bg-yellow-600 text-stone-900 shadow' : 'text-stone-400 hover:text-stone-200'}`}>
             🌍 ผลงานรวมในเว็บ ({logs.length})
@@ -164,7 +155,6 @@ export default function Home() {
                   <div className="flex justify-between items-start mb-4 border-b border-stone-700 pb-3">
                     <div>
                       <h2 className="text-2xl font-bold text-white mb-1">{log.fish_name}</h2>
-                      {/* 👤 โชว์ชื่อเจ้าของโพสต์ที่ดึงแบบ Dynamic จากตารางโปรไฟล์ */}
                       <p className="text-sm font-medium text-yellow-500">
                         👤 ผู้โพสต์: <span className="font-bold text-white bg-stone-700/50 px-2 py-0.5 rounded text-xs">{log.profiles?.display_name || log.author_name || 'นักตกปลาลึกลับ'}</span>
                       </p>
