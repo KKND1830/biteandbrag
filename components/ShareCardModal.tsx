@@ -164,7 +164,7 @@ export default function ShareCardModal({ log, catchCount, onClose }: ShareCardMo
                 drawPlaceholder('ภาพถ่ายปลา (ติดปัญหา CORS รูปภาพ)')
                 resolve()
               }
-              img.src = log.image_url
+              img.src = `${log.image_url}${log.image_url.includes('?') ? '&' : '?'}t=${Date.now()}`
             })
           } catch (e) {
             drawPlaceholder('ภาพถ่ายปลา (ไม่สามารถโหลดได้)')
@@ -392,10 +392,10 @@ export default function ShareCardModal({ log, catchCount, onClose }: ShareCardMo
         </button>
 
         <h2 className="text-lg font-black text-white mb-1 flex items-center gap-1.5 self-start">
-          <span>🎮</span> การ์ดแชร์ผลงานสไตล์ Dota
+          <span>🎣</span> แชร์ผลงาน ขิง
         </h2>
         <p className="text-xs text-stone-400 mb-5 self-start">
-          ระบบวาดขอบเรืองแสงตามยศ <strong style={{ color: lvlInfo.colorHex }}>{lvlInfo.title}</strong> พร้อมคำโปรยสุดขลัง
+          ปรับขนาดและตำแหน่งภาพ เพื่อเซฟรูปไปขิงเพื่อนๆ ได้เลยครับ
         </p>
 
         {/* พื้นที่สำหรับ Render Canvas */}
