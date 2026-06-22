@@ -122,7 +122,7 @@ export default function Login() {
               <span>⚠️</span> แนะนำ: เปิดในเบราว์เซอร์หลัก
             </div>
             <p className="text-xs text-yellow-300/80 leading-relaxed">
-              ขณะนี้คุณกำลังเปิดเว็บผ่านแอพ (เช่น Messenger / Facebook / Line) การเชื่อมต่อกับ Facebook หรือ Google อาจทำงานไม่สมบูรณ์
+              ขณะนี้คุณกำลังเปิดเว็บผ่านแอพ (เช่น Messenger / Facebook / Line) การเชื่อมต่อกับ Google อาจทำงานไม่สมบูรณ์
             </p>
             <p className="text-xs mt-2 font-semibold text-yellow-400">
               👉 วิธีแก้: กดปุ่ม <span className="bg-stone-900 px-1 py-0.5 rounded border border-stone-700 font-mono text-xs">⋮</span> หรือ <span className="bg-stone-900 px-1 py-0.5 rounded border border-stone-700 font-mono text-xs">⋯</span> ที่มุมขวาบน แล้วเลือก <strong className="underline text-yellow-300">"เปิดในเบราว์เซอร์" (Open in Browser)</strong> เพื่อการล็อกอินที่เสถียรครับ
@@ -178,6 +178,7 @@ export default function Login() {
             </svg>
             เข้าสู่ระบบด้วย Google
           </button>
+          {/* ปิดใช้งานล็อกอินด้วย Facebook ชั่วคราว
           <button 
             onClick={handleFacebookLogin} disabled={loading}
             className="w-full py-3 bg-[#1877F2] hover:bg-[#166FE5] text-white font-semibold rounded transition-colors flex items-center justify-center gap-2 text-sm"
@@ -187,6 +188,7 @@ export default function Login() {
             </svg>
             เข้าสู่ระบบด้วย Facebook
           </button>
+          */}
         </div>
 
         {message && (
