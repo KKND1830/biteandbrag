@@ -12,6 +12,11 @@ const CardMap = dynamic(() => import('../components/CardMap'), {
   loading: () => <div className="w-full h-full bg-stone-950 flex items-center justify-center text-stone-500 text-xs">กำลังโหลดแผนที่...</div>
 })
 
+const InteractiveMap = dynamic(() => import('../components/InteractiveMap'), {
+  ssr: false,
+  loading: () => <div className="w-full h-[450px] bg-stone-950 flex items-center justify-center text-stone-500 text-xs rounded-lg border border-stone-700">กำลังโหลดแผนที่ทั้งหมด...</div>
+})
+
 export default function Home() {
   const [logs, setLogs] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
@@ -27,6 +32,7 @@ export default function Home() {
   const [sharingLogCatchCount, setSharingLogCatchCount] = useState<number>(0)
   const [expandedComments, setExpandedComments] = useState<Record<string, boolean>>({})
   const [commentInputs, setCommentInputs] = useState<Record<string, string>>({})
+  const [viewType, setViewType] = useState<'feed' | 'map'>('feed')
 
   useEffect(() => {
     initHome()
@@ -293,6 +299,22 @@ export default function Home() {
           <button onClick={() => setViewMode('mine')} className={`flex-1 py-2.5 text-sm font-bold rounded transition-colors ${viewMode === 'mine' ? 'bg-yellow-600 text-stone-900 shadow' : 'text-stone-400 hover:text-stone-200'}`}>👤 ผลงานของฉัน ({myLogs.length})</button>
         </div>
 
+        {/* 📜/🗺️ แถบเลือกประเภทมุมมองแผนที่หรือผลงาน */}
+        <div className="flex gap-2 mb-6 bg-stone-850 p-1 rounded-lg border border-stone-800 shadow-inner">
+          <button 
+            onClick={() => setViewType('feed')} 
+            className={`flex-1 py-2 text-xs font-bold rounded transition-all flex items-center justify-center gap-1.5 cursor-pointer ${viewType === 'feed' ? 'bg-stone-700 text-yellow-500 shadow border border-stone-600' : 'text-stone-400 hover:text-stone-200'}`}
+          >
+            <span>📜</span> แสดงผลงาน (Feed View)
+          </button>
+          <button 
+            onClick={() => setViewType('map')} 
+            className={`flex-1 py-2 text-xs font-bold rounded transition-all flex items-center justify-center gap-1.5 cursor-pointer ${viewType === 'map' ? 'bg-stone-700 text-yellow-500 shadow border border-stone-600' : 'text-stone-400 hover:text-stone-200'}`}
+          >
+            <span>🗺️</span> แผนที่หมาย (Map View)
+          </button>
+        </div>
+
         {/* 🔍 ช่องค้นหาผลงาน */}
         <div className="mb-6 relative">
           <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -346,6 +368,10 @@ export default function Home() {
 
         {loading ? (
           <p className="text-center text-stone-400 animate-pulse">กำลังดึงข้อมูลจากสายน้ำ...</p>
+        ) : viewType === 'map' ? (
+          <div className="mb-6">
+            <InteractiveMap logs={filteredLogs} />
+          </div>
         ) : displayedLogs.length === 0 ? (
           <div className="text-center p-8 bg-stone-800 rounded-lg border border-stone-700 shadow-xl">
             <p className="text-stone-400 mb-4">{viewMode === 'all' ? 'สมุดบันทึกยังว่างเปล่า' : 'คุณยังไม่มีบันทึกผลงานของตัวเองเลยครับ'}</p>
