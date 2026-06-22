@@ -15,11 +15,6 @@ export default function ShareCardModal({ log, catchCount, onClose }: ShareCardMo
   const [downloadUrl, setDownloadUrl] = useState<string>('')
   const [imageError, setImageError] = useState(false)
   
-  // States สำหรับ Image Customization (Zoom & Panning)
-  const [zoom, setZoom] = useState(1.0)
-  const [offsetX, setOffsetX] = useState(0)
-  const [offsetY, setOffsetY] = useState(0)
-  
   const totalPoints = log.profiles?.total_points || 0
   const lvlInfo = getUserLevelInfo(catchCount, totalPoints)
   const hasCoords = log.latitude !== null && log.longitude !== null && log.latitude !== undefined && log.longitude !== undefined
@@ -73,7 +68,6 @@ export default function ShareCardModal({ log, catchCount, onClose }: ShareCardMo
       ctx.fillText('🎣 BITE & BRAG RECORD 🎣', canvas.width / 2, 45)
 
       // --- 4. การจัดการพิกัดแบ่ง 2 ช่อง (รูปปลา + แผนที่) ---
-      // พิกัดเริ่มต้นเฟรม
       const frameY = 70
       const frameH = 340
       
@@ -84,7 +78,6 @@ export default function ShareCardModal({ log, catchCount, onClose }: ShareCardMo
       let mapW = 0
 
       if (hasCoords) {
-        // หากมีพิกัด จะแบ่งออกเป็น 2 ช่อง (ซ้าย-ขวา) ช่องละ 250px และมีช่องว่าง 20px
         fishW = 250
         mapX = 310
         mapW = 250
@@ -139,14 +132,12 @@ export default function ShareCardModal({ log, catchCount, onClose }: ShareCardMo
                   baseScale = fishW / img.width
                 }
 
-                // นำตัวแปรควบคุมจากแถบสไลด์มาร่วมคำนวณ
-                const finalScale = baseScale * zoom
-                const drawW = img.width * finalScale
-                const drawH = img.height * finalScale
+                const drawW = img.width * baseScale
+                const drawH = img.height * baseScale
 
-                // กึ่งกลางภาพพร้อมลากพิกัดชดเชย
-                const drawX = fishX + (fishW - drawW) / 2 + offsetX
-                const drawY = frameY + (frameH - drawH) / 2 + offsetY
+                // กึ่งกลางภาพพอดี
+                const drawX = fishX + (fishW - drawW) / 2
+                const drawY = frameY + (frameH - drawH) / 2
 
                 ctx.drawImage(img, drawX, drawY, drawW, drawH)
                 ctx.restore()
@@ -164,6 +155,7 @@ export default function ShareCardModal({ log, catchCount, onClose }: ShareCardMo
                 drawPlaceholder('ภาพถ่ายปลา (ติดปัญหา CORS รูปภาพ)')
                 resolve()
               }
+              // ใช้ Timestamp ป้องกันปัญหา Cache CORS ของเบราว์เซอร์
               img.src = `${log.image_url}${log.image_url.includes('?') ? '&' : '?'}t=${Date.now()}`
             })
           } catch (e) {
@@ -199,7 +191,6 @@ export default function ShareCardModal({ log, catchCount, onClose }: ShareCardMo
         const tileMaxY = Math.floor((top + frameH) / 256)
 
         ctx.save()
-        // จำกัดพื้นที่การวาดแผนที่
         ctx.beginPath()
         ctx.rect(mapX, frameY, mapW, frameH)
         ctx.clip()
@@ -221,7 +212,7 @@ export default function ShareCardModal({ log, catchCount, onClose }: ShareCardMo
                   ctx.drawImage(tileImg, dx, dy, 256, 256)
                   resolve()
                 }
-                tileImg.onerror = () => resolve() // ละเว้นข้อผิดพลาดรูปแผนที่
+                tileImg.onerror = () => resolve() 
                 tileImg.src = tileUrl
               })
             )
@@ -230,11 +221,11 @@ export default function ShareCardModal({ log, catchCount, onClose }: ShareCardMo
 
         await Promise.all(tilePromises)
 
-        // วาดมาร์กเกอร์สีเหลืองขอบขาวตรงจุดศูนย์กลาง
+        // วาดมาร์กเกอร์ตรงจุดศูนย์กลาง
         const markerX = mapX + mapW / 2
         const markerY = frameY + frameH / 2
 
-        // เงาวงกลมสีขาวด้านนอก
+        // วงกลมสีขาว
         ctx.beginPath()
         ctx.arc(markerX, markerY, 8, 0, Math.PI * 2)
         ctx.fillStyle = '#ffffff'
@@ -243,7 +234,7 @@ export default function ShareCardModal({ log, catchCount, onClose }: ShareCardMo
         ctx.strokeStyle = 'rgba(0,0,0,0.35)'
         ctx.stroke()
 
-        // จุดสีเหลืองตรงกลาง
+        // จุดสีเหลือง
         ctx.beginPath()
         ctx.arc(markerX, markerY, 4.5, 0, Math.PI * 2)
         ctx.fillStyle = '#eab308' // yellow-500
@@ -257,7 +248,7 @@ export default function ShareCardModal({ log, catchCount, onClose }: ShareCardMo
         ctx.strokeRect(mapX, frameY, mapW, frameH)
       }
 
-      // รันการวาดทั้งสองส่วนขนานกัน
+      // วาดภาพปลาและแผนที่ขนานกัน
       await Promise.all([drawFishImage(), drawOSMMap()])
 
       // --- 5. วาดคำโปรยฟีลลิ่ง DOTA (Main Catchphrase) ---
@@ -366,7 +357,7 @@ export default function ShareCardModal({ log, catchCount, onClose }: ShareCardMo
     }
 
     drawCard()
-  }, [log, catchCount, lvlInfo, zoom, offsetX, offsetY, hasCoords])
+  }, [log, catchCount, lvlInfo, hasCoords])
 
   const handleDownload = () => {
     if (!downloadUrl) return
@@ -395,11 +386,11 @@ export default function ShareCardModal({ log, catchCount, onClose }: ShareCardMo
           <span>🎣</span> แชร์ผลงาน ขิง
         </h2>
         <p className="text-xs text-stone-400 mb-5 self-start">
-          ปรับขนาดและตำแหน่งภาพ เพื่อเซฟรูปไปขิงเพื่อนๆ ได้เลยครับ
+          เซฟรูปการ์ดแชร์ เพื่อนำไปขิงกับเพื่อนๆ ในโซเชียลได้เลยครับ
         </p>
 
         {/* พื้นที่สำหรับ Render Canvas */}
-        <div className="relative w-full max-w-[300px] aspect-[3/4] bg-stone-950 rounded-lg overflow-hidden border border-stone-800 shadow-xl mb-5">
+        <div className="relative w-full max-w-[300px] aspect-[3/4] bg-stone-950 rounded-lg overflow-hidden border border-stone-800 shadow-xl mb-6">
           {loading && (
             <div className="absolute inset-0 flex flex-col items-center justify-center bg-stone-950/90 text-stone-300 z-10">
               <span className="text-3xl animate-bounce mb-2">🎣</span>
@@ -417,70 +408,10 @@ export default function ShareCardModal({ log, catchCount, onClose }: ShareCardMo
 
         {/* กล่องเตือนกรณีโหลดภาพติด CORS */}
         {imageError && (
-          <div className="mb-4 p-2 bg-yellow-950/40 border border-yellow-900/30 rounded text-[10px] text-yellow-300 w-full text-center">
-            ⚠️ ตรวจพบข้อจำกัด CORS ของรูปภาพ จึงใช้รูปปลาแนวศิลปะแทนเพื่อเซฟรูปได้โดยไม่ขัดข้อง
+          <div className="mb-6 p-2.5 bg-yellow-950/40 border border-yellow-900/30 rounded text-[10.5px] text-yellow-300 w-full text-center leading-normal">
+            ⚠️ พบข้อจำกัดสิทธิ์รูปภาพ จึงใช้วาดรูปปลาอาร์ตตัวแทนลงในการ์ด เพื่อความเสถียรในการดาวน์โหลด
           </div>
         )}
-
-        {/* แถบควบคุมตัวปรับแต่งรูปภาพ (Sliders) */}
-        <div className="w-full bg-stone-950 p-4 rounded-lg border border-stone-800 text-stone-300 text-xs flex flex-col gap-3.5 mb-6">
-          <p className="font-bold text-stone-200 border-b border-stone-850 pb-2 mb-1 flex items-center gap-1">
-            <span>📐</span> เครื่องมือปรับแต่งรูปถ่ายปลา
-          </p>
-          
-          {/* ขยายภาพ */}
-          <div className="flex flex-col gap-1.5">
-            <div className="flex justify-between">
-              <span>ขนาดรูปภาพ (Zoom):</span>
-              <span className="font-bold text-yellow-500">{zoom.toFixed(2)}x</span>
-            </div>
-            <input 
-              type="range" 
-              min="0.5" 
-              max="3.0" 
-              step="0.05"
-              value={zoom} 
-              onChange={(e) => setZoom(parseFloat(e.target.value))}
-              className="w-full accent-yellow-500 bg-stone-800 rounded-lg appearance-none h-1.5 cursor-pointer"
-            />
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            {/* เลื่อน X */}
-            <div className="flex flex-col gap-1.5">
-              <div className="flex justify-between">
-                <span>เลื่อนแนวนอน (X):</span>
-                <span className="font-bold text-stone-400">{offsetX}px</span>
-              </div>
-              <input 
-                type="range" 
-                min="-200" 
-                max="200" 
-                step="1"
-                value={offsetX} 
-                onChange={(e) => setOffsetX(parseInt(e.target.value))}
-                className="w-full accent-yellow-500 bg-stone-800 rounded-lg appearance-none h-1.5 cursor-pointer"
-              />
-            </div>
-
-            {/* เลื่อน Y */}
-            <div className="flex flex-col gap-1.5">
-              <div className="flex justify-between">
-                <span>เลื่อนแนวตั้ง (Y):</span>
-                <span className="font-bold text-stone-400">{offsetY}px</span>
-              </div>
-              <input 
-                type="range" 
-                min="-200" 
-                max="200" 
-                step="1"
-                value={offsetY} 
-                onChange={(e) => setOffsetY(parseInt(e.target.value))}
-                className="w-full accent-yellow-500 bg-stone-800 rounded-lg appearance-none h-1.5 cursor-pointer"
-              />
-            </div>
-          </div>
-        </div>
 
         <div className="flex gap-3 w-full">
           <button 
@@ -498,7 +429,7 @@ export default function ShareCardModal({ log, catchCount, onClose }: ShareCardMo
                 : 'bg-yellow-500 hover:bg-yellow-400 active:scale-98'
             }`}
           >
-            <span>📥</span> เซฟการ์ดแชร์ (PNG)
+            <span>📥</span> เซฟรูปการ์ดแชร์ (PNG)
           </button>
         </div>
       </div>
