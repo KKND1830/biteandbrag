@@ -233,94 +233,94 @@ export default function ShareCardModal({ log, catchCount, onClose }: ShareCardMo
         const tileMinY = Math.floor(top / 256)
         const tileMaxY = Math.floor((top + frameH) / 256)
 
-        // กำหนด Timeout สำหรับโหลดแผนที่ไทล์ 2.5 วินาที
-        let mapLoaded = false
-        const mapTimeout = setTimeout(() => {
-          if (!mapLoaded) {
-            console.warn('Map tiles load timed out, drawing fallback card')
-            mapLoaded = true
-            drawMapPlaceholder('แผนที่ (หมดเวลาเชื่อมต่อ)')
-          }
-        }, 2500)
+        // ฟังก์ชันโหลดไทล์แผนที่ทั้งหมดพร้อมจำกัดเวลา
+        const loadAllTiles = () => {
+          return new Promise<boolean>((resolveOuter) => {
+            let finished = false
 
-        try {
-          // โหลดและเย็บไทล์ OSM (Stitch OpenStreetMap Tiles)
-          const tilePromises: Promise<boolean>[] = []
-          for (let tx = tileMinX; tx <= tileMaxX; tx++) {
-            for (let ty = tileMinY; ty <= tileMaxY; ty++) {
-              const sub = ['a', 'b', 'c'][Math.abs(tx + ty) % 3]
-              const tileUrl = `https://${sub}.tile.openstreetmap.org/${mapZoom}/${tx}/${ty}.png`
-              
-              tilePromises.push(
-                new Promise<boolean>((resolve) => {
-                  const tileImg = new Image()
-                  tileImg.crossOrigin = 'anonymous'
-                  tileImg.onload = () => {
-                    resolve(true)
-                    // ถ้าระบบยังไม่หลุด Timeout ให้วาดแผ่นแผนที่
-                    if (!mapLoaded) {
-                      ctx.save()
-                      ctx.beginPath()
-                      ctx.rect(mapX, frameY, mapW, frameH)
-                      ctx.clip()
-                      const dx = mapX + (tx * 256 - left)
-                      const dy = frameY + (ty * 256 - top)
-                      ctx.drawImage(tileImg, dx, dy, 256, 256)
-                      ctx.restore()
+            const timeoutId = setTimeout(() => {
+              if (!finished) {
+                finished = true
+                console.warn('Map tiles load timed out')
+                resolveOuter(false)
+              }
+            }, 2500)
+
+            const tilePromises: Promise<boolean>[] = []
+            for (let tx = tileMinX; tx <= tileMaxX; tx++) {
+              for (let ty = tileMinY; ty <= tileMaxY; ty++) {
+                const sub = ['a', 'b', 'c'][Math.abs(tx + ty) % 3]
+                const tileUrl = `https://${sub}.tile.openstreetmap.org/${mapZoom}/${tx}/${ty}.png`
+                
+                tilePromises.push(
+                  new Promise<boolean>((resolveTile) => {
+                    const tileImg = new Image()
+                    tileImg.crossOrigin = 'anonymous'
+                    tileImg.onload = () => {
+                      if (!finished) {
+                        ctx.save()
+                        ctx.beginPath()
+                        ctx.rect(mapX, frameY, mapW, frameH)
+                        ctx.clip()
+                        const dx = mapX + (tx * 256 - left)
+                        const dy = frameY + (ty * 256 - top)
+                        ctx.drawImage(tileImg, dx, dy, 256, 256)
+                        ctx.restore()
+                      }
+                      resolveTile(true)
                     }
-                  }
-                  tileImg.onerror = () => resolve(false) 
-                  tileImg.src = tileUrl
-                })
-              )
+                    tileImg.onerror = () => {
+                      resolveTile(false)
+                    }
+                    tileImg.src = tileUrl
+                  })
+                )
+              }
             }
-          }
 
-          const results = await Promise.all(tilePromises)
-          const allSuccessful = results.every(res => res === true)
+            Promise.all(tilePromises).then((results) => {
+              if (!finished) {
+                finished = true
+                clearTimeout(timeoutId)
+                const allSuccessful = results.every(res => res === true)
+                resolveOuter(allSuccessful)
+              }
+            })
+          })
+        }
 
-          clearTimeout(mapTimeout)
+        const success = await loadAllTiles()
 
-          if (!mapLoaded) {
-            mapLoaded = true
-            if (allSuccessful) {
-              // วาดมาร์กเกอร์ตรงจุดศูนย์กลาง
-              ctx.save()
-              const markerX = mapX + mapW / 2
-              const markerY = frameY + frameH / 2
+        if (success) {
+          // วาดมาร์กเกอร์ตรงจุดศูนย์กลาง
+          ctx.save()
+          const markerX = mapX + mapW / 2
+          const markerY = frameY + frameH / 2
 
-              // วงกลมสีขาว
-              ctx.beginPath()
-              ctx.arc(markerX, markerY, 8, 0, Math.PI * 2)
-              ctx.fillStyle = '#ffffff'
-              ctx.fill()
-              ctx.lineWidth = 1.5
-              ctx.strokeStyle = 'rgba(0,0,0,0.35)'
-              ctx.stroke()
+          // วงกลมสีขาว
+          ctx.beginPath()
+          ctx.arc(markerX, markerY, 8, 0, Math.PI * 2)
+          ctx.fillStyle = '#ffffff'
+          ctx.fill()
+          ctx.lineWidth = 1.5
+          ctx.strokeStyle = 'rgba(0,0,0,0.35)'
+          ctx.stroke()
 
-              // จุดสีเหลือง
-              ctx.beginPath()
-              ctx.arc(markerX, markerY, 4.5, 0, Math.PI * 2)
-              ctx.fillStyle = '#eab308' // yellow-500
-              ctx.fill()
+          // จุดสีเหลือง
+          ctx.beginPath()
+          ctx.arc(markerX, markerY, 4.5, 0, Math.PI * 2)
+          ctx.fillStyle = '#eab308' // yellow-500
+          ctx.fill()
 
-              ctx.restore()
+          ctx.restore()
 
-              // เส้นขอบแผนที่
-              ctx.lineWidth = 2
-              ctx.strokeStyle = lvlInfo.colorHex
-              ctx.strokeRect(mapX, frameY, mapW, frameH)
-            } else {
-              // กรณีบางไทล์ติด CORS หรือบล็อกสัญญาณ
-              drawMapPlaceholder('แผนที่ (ติดข้อจำกัด CORS หรือเชื่อมต่อล้มเหลว)')
-            }
-          }
-        } catch (e) {
-          clearTimeout(mapTimeout)
-          if (!mapLoaded) {
-            mapLoaded = true
-            drawMapPlaceholder('แผนที่ (โหลดขัดข้อง)')
-          }
+          // เส้นขอบแผนที่
+          ctx.lineWidth = 2
+          ctx.strokeStyle = lvlInfo.colorHex
+          ctx.strokeRect(mapX, frameY, mapW, frameH)
+        } else {
+          // หากหมดเวลาหรือเกิดข้อผิดพลาดในการโหลดบางไทล์ ให้วาดภาพจำลองแทน
+          drawMapPlaceholder('แผนที่ (เชื่อมต่อหมดเวลา หรือมีข้อจำกัด CORS)')
         }
       }
 
