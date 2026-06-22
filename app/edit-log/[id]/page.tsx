@@ -16,6 +16,40 @@ export default function EditLog() {
   const [lure, setLure] = useState('')
   const [message, setMessage] = useState('')
   const [loading, setLoading] = useState(true)
+  const [latitude, setLatitude] = useState('')
+  const [longitude, setLongitude] = useState('')
+
+  const handleGetCurrentLocation = () => {
+    if (!navigator.geolocation) {
+      alert('เบราว์เซอร์ของคุณไม่สนับสนุนการดึงข้อมูลตำแหน่ง GPS')
+      return
+    }
+    
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setLatitude(position.coords.latitude.toString())
+        setLongitude(position.coords.longitude.toString())
+        setMessage('📍 ดึงตำแหน่งพิกัดปัจจุบันสำเร็จ!')
+        setTimeout(() => setMessage(''), 3000)
+      },
+      (error) => {
+        let errorMsg = 'ไม่สามารถดึงตำแหน่งได้'
+        switch (error.code) {
+          case error.PERMISSION_DENIED:
+            errorMsg = 'ผู้ใช้ปฏิเสธการเข้าถึงสิทธิ์ตำแหน่งที่ตั้ง (Permission Denied)'
+            break
+          case error.POSITION_UNAVAILABLE:
+            errorMsg = 'ข้อมูลตำแหน่งไม่พร้อมใช้งาน (Position Unavailable)'
+            break
+          case error.TIMEOUT:
+            errorMsg = 'การดึงข้อมูลตำแหน่งหมดเวลา (Timeout)'
+            break
+        }
+        alert('❌ ดึงตำแหน่งไม่สำเร็จ: ' + errorMsg)
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+    )
+  }
 
   // 1. ดึงข้อมูลเดิมมาแสดง
   useEffect(() => {
@@ -35,6 +69,8 @@ export default function EditLog() {
       setLength(data.length?.toString() || '')
       setLocation(data.location_name || '')
       setLure(data.lure_used || '')
+      setLatitude(data.latitude?.toString() || '')
+      setLongitude(data.longitude?.toString() || '')
     }
     setLoading(false)
   }
@@ -51,7 +87,9 @@ export default function EditLog() {
         weight: weight ? parseFloat(weight) : null, 
         length: length ? parseFloat(length) : null, 
         location_name: location, 
-        lure_used: lure 
+        lure_used: lure,
+        latitude: latitude ? parseFloat(latitude) : null,
+        longitude: longitude ? parseFloat(longitude) : null
       })
       .eq('id', logId)
 
@@ -101,6 +139,28 @@ export default function EditLog() {
             <label className="block mb-1 text-sm text-stone-400">หมายตกปลา</label>
             <input type="text" value={location} onChange={(e) => setLocation(e.target.value)}
               className="w-full p-3 bg-stone-700 rounded text-white focus:ring-2 focus:ring-yellow-500" />
+          </div>
+
+          <div className="p-4 bg-stone-900/30 rounded border border-stone-700 space-y-3">
+            <div className="flex justify-between items-center">
+              <span className="text-sm font-semibold text-yellow-500">📍 พิกัดหมายตกปลา (สำหรับแผนที่)</span>
+              <button type="button" onClick={handleGetCurrentLocation}
+                className="px-3 py-1 bg-stone-600 hover:bg-stone-500 text-white rounded text-xs font-semibold transition-colors flex items-center gap-1">
+                <span>📍</span> ดึงพิกัดปัจจุบัน
+              </button>
+            </div>
+            <div className="flex gap-4">
+              <div className="w-1/2">
+                <label className="block mb-1 text-xs text-stone-400">ละติจูด (Latitude)</label>
+                <input type="number" step="any" value={latitude} onChange={(e) => setLatitude(e.target.value)}
+                  className="w-full p-2.5 bg-stone-700 rounded text-white text-sm focus:ring-2 focus:ring-yellow-500" placeholder="เช่น 13.7563" />
+              </div>
+              <div className="w-1/2">
+                <label className="block mb-1 text-xs text-stone-400">ลองจิจูด (Longitude)</label>
+                <input type="number" step="any" value={longitude} onChange={(e) => setLongitude(e.target.value)}
+                  className="w-full p-2.5 bg-stone-700 rounded text-white text-sm focus:ring-2 focus:ring-yellow-500" placeholder="เช่น 100.5018" />
+              </div>
+            </div>
           </div>
 
           <div>

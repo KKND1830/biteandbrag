@@ -317,7 +317,23 @@ export default function Home() {
                     <div className="grid grid-cols-2 gap-4 text-stone-300 mb-6">
                       <p><span className="text-stone-500 text-sm block">น้ำหนัก</span> {log.weight ? `${log.weight} กก.` : '-'}</p>
                       <p><span className="text-stone-500 text-sm block">ความยาว</span> {log.length ? `${log.length} ซม.` : '-'}</p>
-                      <p><span className="text-stone-500 text-sm block">หมายตกปลา</span> {log.location_name || 'ไม่ระบุ'}</p>
+                      <p>
+                        <span className="text-stone-500 text-sm block">หมายตกปลา</span>
+                        <span className="inline-flex items-center gap-2 flex-wrap">
+                          <span>{log.location_name || 'ไม่ระบุ'}</span>
+                          {log.latitude && log.longitude && (
+                            <a 
+                              href={`https://www.google.com/maps/search/?api=1&query=${log.latitude},${log.longitude}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1 text-[11px] bg-yellow-500/10 text-yellow-500 border border-yellow-500/30 hover:bg-yellow-500/20 px-2 py-0.5 rounded transition-all"
+                              title="เปิดนำทางบน Google Maps"
+                            >
+                              📍 นำทาง
+                            </a>
+                          )}
+                        </span>
+                      </p>
                       <p><span className="text-stone-500 text-sm block">เหยื่อที่ใช้</span> {log.lure_used || 'ไม่ระบุ'}</p>
                     </div>
                     <div className="flex items-center pt-3 border-t border-stone-700/50">
