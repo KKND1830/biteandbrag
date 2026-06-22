@@ -25,10 +25,38 @@ export default function Home() {
   const [searchQuery, setSearchQuery] = useState('')
   const [sharingLog, setSharingLog] = useState<any | null>(null)
   const [sharingLogCatchCount, setSharingLogCatchCount] = useState<number>(0)
+  const [expandedComments, setExpandedComments] = useState<Record<string, boolean>>({})
+  const [commentInputs, setCommentInputs] = useState<Record<string, string>>({})
 
   useEffect(() => {
     initHome()
   }, [])
+
+  const fetchLogs = async () => {
+    const { data: logsData } = await supabase
+      .from('bite_logs')
+      .select('*, profiles(display_name, rank, total_points), likes(user_id)')
+      .order('created_at', { ascending: false })
+
+    if (logsData) {
+      const { data: commentsData, error: commentsError } = await supabase
+        .from('comments')
+        .select('*, profiles(display_name)')
+        .order('created_at', { ascending: true })
+
+      if (commentsError) {
+        console.error('Error fetching comments:', commentsError.message)
+        // ถ้าไม่มีตาราง comments หรือโหลดไม่ได้ ให้เก็บผลงานโดยคอมเมนต์เป็นอาเรย์ว่าง
+        setLogs(logsData.map(log => ({ ...log, comments: [] })))
+      } else {
+        const logsWithComments = logsData.map(log => ({
+          ...log,
+          comments: commentsData.filter((c: any) => c.log_id === log.id) || []
+        }))
+        setLogs(logsWithComments)
+      }
+    }
+  }
 
   const initHome = async () => {
     setLoading(true)
@@ -50,12 +78,7 @@ export default function Home() {
       }
     }
 
-    const { data, error } = await supabase
-      .from('bite_logs')
-      .select('*, profiles(display_name, rank, total_points), likes(user_id)')
-      .order('created_at', { ascending: false })
-    
-    if (data) setLogs(data)
+    await fetchLogs()
     setLoading(false)
   }
 
@@ -70,7 +93,7 @@ export default function Home() {
     } else {
       await supabase.from('likes').insert([{ user_id: currentUserId, log_id: logId }])
     }
-    initHome()
+    await fetchLogs()
   }
 
   const handleUpdateProfile = async () => {
@@ -95,12 +118,50 @@ export default function Home() {
     
     // โหลดข้อมูลผลงานใหม่ในฐานะ Guest
     setLoading(true)
-    const { data } = await supabase
-      .from('bite_logs')
-      .select('*, profiles(display_name, rank, total_points), likes(user_id)')
-      .order('created_at', { ascending: false })
-    if (data) setLogs(data)
+    await fetchLogs()
     setLoading(false)
+  }
+
+  const handleAddComment = async (logId: string) => {
+    const content = commentInputs[logId] || ''
+    if (!content.trim()) return
+
+    if (!currentUserId) {
+      alert('กรุณาเข้าสู่ระบบก่อนแสดงความคิดเห็นครับ!')
+      return
+    }
+
+    const { error } = await supabase.from('comments').insert([
+      {
+        log_id: logId,
+        user_id: currentUserId,
+        content: content.trim()
+      }
+    ])
+
+    if (error) {
+      alert('ไม่สามารถเพิ่มความคิดเห็นได้: ' + error.message)
+    } else {
+      setCommentInputs(prev => ({ ...prev, [logId]: '' }))
+      await fetchLogs()
+    }
+  }
+
+  const handleDeleteComment = async (commentId: string) => {
+    const confirmDelete = window.confirm('ต้องการลบความคิดเห็นนี้ใช่หรือไม่? 🗑️')
+    if (!confirmDelete) return
+
+    const { error } = await supabase.from('comments').delete().eq('id', commentId)
+
+    if (error) {
+      alert('ไม่สามารถลบความคิดเห็นได้: ' + error.message)
+    } else {
+      await fetchLogs()
+    }
+  }
+
+  const toggleComments = (logId: string) => {
+    setExpandedComments(prev => ({ ...prev, [logId]: !prev[logId] }))
   }
 
   const handleDelete = async (id: string) => {
@@ -393,6 +454,20 @@ export default function Home() {
                         {likeCount > 0 && <span className="bg-stone-900 px-2 py-0.5 rounded-full text-xs">{likeCount}</span>}
                       </button>
 
+                      <button
+                        onClick={() => toggleComments(log.id)}
+                        className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-bold transition-all duration-200 ${
+                          expandedComments[log.id] ? 'bg-yellow-600 text-stone-900' : 'bg-stone-700 text-stone-300 hover:bg-stone-600'
+                        }`}
+                      >
+                        <span>💬 คอมเมนต์</span>
+                        {log.comments && log.comments.length > 0 && (
+                          <span className={`${expandedComments[log.id] ? 'bg-stone-900 text-yellow-500 font-bold' : 'bg-stone-900 text-stone-300'} px-2 py-0.5 rounded-full text-xs`}>
+                            {log.comments.length}
+                          </span>
+                        )}
+                      </button>
+
                       {currentUserId && log.user_id === currentUserId && (
                         <button 
                           onClick={() => {
@@ -405,6 +480,77 @@ export default function Home() {
                         </button>
                       )}
                     </div>
+
+                    {/* ส่วนแสดงความคิดเห็น (Comment Section) */}
+                    {expandedComments[log.id] && (
+                      <div className="mt-5 pt-5 border-t border-stone-700/50 space-y-4">
+                        <h4 className="text-sm font-bold text-yellow-500 flex items-center gap-1.5">
+                          <span>💬</span> ความคิดเห็น ({log.comments?.length || 0})
+                        </h4>
+
+                        {/* รายการคอมเมนต์ */}
+                        <div className="space-y-3 max-h-60 overflow-y-auto pr-1">
+                          {log.comments && log.comments.length > 0 ? (
+                            log.comments.map((comment: any) => (
+                              <div key={comment.id} className="bg-stone-850 p-3 rounded-lg border border-stone-750 flex justify-between items-start gap-2">
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-baseline gap-2 mb-1 flex-wrap">
+                                    <span className="text-xs font-bold text-yellow-400">
+                                      {comment.profiles?.display_name || 'นักตกปลา'}
+                                    </span>
+                                    <span className="text-[10px] text-stone-500">
+                                      {new Date(comment.created_at).toLocaleDateString('th-TH')} {new Date(comment.created_at).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })}
+                                    </span>
+                                  </div>
+                                  <p className="text-xs text-stone-300 break-words leading-relaxed whitespace-pre-wrap">
+                                    {comment.content}
+                                  </p>
+                                </div>
+                                {currentUserId && comment.user_id === currentUserId && (
+                                  <button
+                                    onClick={() => handleDeleteComment(comment.id)}
+                                    className="text-stone-500 hover:text-red-400 text-xs p-1 transition-colors"
+                                    title="ลบคอมเมนต์"
+                                  >
+                                    🗑️
+                                  </button>
+                                )}
+                              </div>
+                            ))
+                          ) : (
+                            <p className="text-xs text-stone-500 text-center py-2">ยังไม่มีความคิดเห็นเกี่ยวกับผลงานนี้ 🎣</p>
+                          )}
+                        </div>
+
+                        {/* กล่องส่งคอมเมนต์ */}
+                        {currentUserId ? (
+                          <div className="flex gap-2">
+                            <input
+                              type="text"
+                              placeholder="เขียนความคิดเห็นเกี่ยวกับผลงานนี้..."
+                              value={commentInputs[log.id] || ''}
+                              onChange={(e) => setCommentInputs(prev => ({ ...prev, [log.id]: e.target.value }))}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                  handleAddComment(log.id)
+                                }
+                              }}
+                              className="flex-1 p-2 bg-stone-900 border border-stone-700 rounded text-xs text-stone-200 placeholder-stone-500 focus:outline-none focus:border-yellow-500 transition-colors"
+                            />
+                            <button
+                              onClick={() => handleAddComment(log.id)}
+                              className="bg-yellow-600 hover:bg-yellow-500 text-stone-900 font-bold text-xs px-4 py-2 rounded transition-colors"
+                            >
+                              ส่ง
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="p-2.5 bg-stone-900/50 border border-stone-850 rounded text-center text-xs text-stone-500">
+                            🔒 กรุณา <Link href="/login" className="text-yellow-500 hover:underline">เข้าสู่ระบบ</Link> เพื่อเขียนความคิดเห็น
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
               )
