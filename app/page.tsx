@@ -2,6 +2,12 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../utils/supabase'
 import Link from 'next/link'
+import dynamic from 'next/dynamic'
+
+const CardMap = dynamic(() => import('../components/CardMap'), {
+  ssr: false,
+  loading: () => <div className="w-full h-full bg-stone-950 flex items-center justify-center text-stone-500 text-xs">กำลังโหลดแผนที่...</div>
+})
 
 export default function Home() {
   const [logs, setLogs] = useState<any[]>([])
@@ -291,9 +297,19 @@ export default function Home() {
 
               return (
                 <div key={log.id} className="overflow-hidden bg-stone-800 rounded-lg shadow-xl border border-stone-700 hover:border-yellow-600 transition-colors">
-                  {log.image_url && (
-                    <div className="w-full h-64 bg-stone-950 overflow-hidden relative border-b border-stone-700">
-                      <img src={log.image_url} alt={log.fish_name} className="w-full h-full object-cover" />
+                  {/* แสดงรูปภาพคู่กับแผนที่จำลอง */}
+                  {(log.image_url || (log.latitude && log.longitude)) && (
+                    <div className="flex flex-col sm:flex-row h-[360px] sm:h-64 bg-stone-950 overflow-hidden relative border-b border-stone-700">
+                      {log.image_url && (
+                        <div className={`${log.latitude && log.longitude ? 'w-full sm:w-1/2 h-1/2 sm:h-full' : 'w-full h-full'} relative`}>
+                          <img src={log.image_url} alt={log.fish_name} className="w-full h-full object-cover" />
+                        </div>
+                      )}
+                      {log.latitude && log.longitude && (
+                        <div className={`${log.image_url ? 'w-full sm:w-1/2 h-1/2 sm:h-full border-t sm:border-t-0 sm:border-l border-stone-700' : 'w-full h-full'} relative`}>
+                          <CardMap lat={log.latitude} lng={log.longitude} />
+                        </div>
+                      )}
                     </div>
                   )}
                   <div className="p-6">
