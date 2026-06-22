@@ -4,6 +4,9 @@ import { supabase } from '../utils/supabase'
 import Link from 'next/link'
 import dynamic from 'next/dynamic'
 
+import { getUserLevelInfo } from '../utils/level'
+import ShareCardModal from '../components/ShareCardModal'
+
 const CardMap = dynamic(() => import('../components/CardMap'), {
   ssr: false,
   loading: () => <div className="w-full h-full bg-stone-950 flex items-center justify-center text-stone-500 text-xs">กำลังโหลดแผนที่...</div>
@@ -20,6 +23,8 @@ export default function Home() {
   const [isEditingProfile, setIsEditingProfile] = useState(false)
   const [newProfileName, setNewProfileName] = useState('')
   const [searchQuery, setSearchQuery] = useState('')
+  const [sharingLog, setSharingLog] = useState<any | null>(null)
+  const [sharingLogCatchCount, setSharingLogCatchCount] = useState<number>(0)
 
   useEffect(() => {
     initHome()
@@ -47,7 +52,7 @@ export default function Home() {
 
     const { data, error } = await supabase
       .from('bite_logs')
-      .select('*, profiles(display_name), likes(user_id)')
+      .select('*, profiles(display_name, rank, total_points), likes(user_id)')
       .order('created_at', { ascending: false })
     
     if (data) setLogs(data)
@@ -92,7 +97,7 @@ export default function Home() {
     setLoading(true)
     const { data } = await supabase
       .from('bite_logs')
-      .select('*, profiles(display_name), likes(user_id)')
+      .select('*, profiles(display_name, rank, total_points), likes(user_id)')
       .order('created_at', { ascending: false })
     if (data) setLogs(data)
     setLoading(false)
@@ -295,8 +300,13 @@ export default function Home() {
               const likeCount = log.likes?.length || 0;
               const hasLiked = log.likes?.some((like: any) => like.user_id === currentUserId);
 
+              // คำนวณหาจำนวนตัวสะสมที่ตกได้ของผู้โพสต์ล็อกนี้
+              const authorCatchCount = logs.filter((l) => l.user_id === log.user_id).length
+              // คำนวณเลเวลผู้โพสต์
+              const authorLvlInfo = getUserLevelInfo(authorCatchCount, log.profiles?.total_points || 0)
+
               return (
-                <div key={log.id} className="overflow-hidden bg-stone-800 rounded-lg shadow-xl border border-stone-700 hover:border-yellow-600 transition-colors">
+                <div key={log.id} className={`overflow-hidden bg-stone-800 rounded-lg shadow-xl transition-all duration-300 ${authorLvlInfo.frameClass}`}>
                   {/* แสดงรูปภาพคู่กับแผนที่จำลอง (จำกัดเฉพาะสมาชิกที่เข้าสู่ระบบแล้วเท่านั้น) */}
                   {currentUserId && (log.image_url || (log.latitude && log.longitude)) ? (
                     <div className="flex flex-col sm:flex-row h-[360px] sm:h-64 bg-stone-950 overflow-hidden relative border-b border-stone-700">
@@ -323,8 +333,12 @@ export default function Home() {
                     <div className="flex justify-between items-start mb-4 border-b border-stone-700 pb-3">
                       <div>
                         <h2 className="text-2xl font-bold text-white mb-1">{log.fish_name}</h2>
-                        <p className="text-sm font-medium text-yellow-500">
-                          👤 ผู้โพสต์: <span className="font-bold text-white bg-stone-700/50 px-2 py-0.5 rounded text-xs">{log.profiles?.display_name || log.author_name || 'นักตกปลาลึกลับ'}</span>
+                        <p className="text-sm font-medium text-yellow-500 flex flex-wrap items-center gap-1.5">
+                          <span>👤 ผู้โพสต์:</span>
+                          <span className="font-bold text-white bg-stone-700/50 px-2 py-0.5 rounded text-xs">{log.profiles?.display_name || log.author_name || 'นักตกปลาลึกลับ'}</span>
+                          <span className={`inline-flex items-center gap-0.5 px-2 py-0.5 rounded text-[10px] font-black border leading-none ${authorLvlInfo.colorClass}`}>
+                            {authorLvlInfo.title}
+                          </span>
                         </p>
                       </div>
                       <div className="flex flex-col items-end gap-2">
@@ -368,7 +382,7 @@ export default function Home() {
                       </p>
                       <p><span className="text-stone-500 text-sm block">เหยื่อที่ใช้</span> {log.lure_used || 'ไม่ระบุ'}</p>
                     </div>
-                    <div className="flex items-center pt-3 border-t border-stone-700/50">
+                    <div className="flex items-center justify-between pt-3 border-t border-stone-700/50 flex-wrap gap-2">
                       <button 
                         onClick={() => handleToggleLike(log.id, hasLiked)}
                         className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-bold transition-all duration-200 ${
@@ -378,6 +392,18 @@ export default function Home() {
                         <span>{hasLiked ? '❤️ หมานสุดๆ!' : '🤍 หมานๆ'}</span>
                         {likeCount > 0 && <span className="bg-stone-900 px-2 py-0.5 rounded-full text-xs">{likeCount}</span>}
                       </button>
+
+                      {currentUserId && log.user_id === currentUserId && (
+                        <button 
+                          onClick={() => {
+                            setSharingLog(log)
+                            setSharingLogCatchCount(authorCatchCount)
+                          }}
+                          className="flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-bold bg-stone-700 hover:bg-stone-600 border border-transparent text-stone-300 hover:text-white transition-all duration-200"
+                        >
+                          <span>🔗 แชร์ผลงาน</span>
+                        </button>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -386,6 +412,18 @@ export default function Home() {
           </div>
         )}
       </div>
+
+      {/* หน้าต่าง Share Card พรีวิวแบบ Dota */}
+      {sharingLog && (
+        <ShareCardModal
+          log={sharingLog}
+          catchCount={sharingLogCatchCount}
+          onClose={() => {
+            setSharingLog(null)
+            setSharingLogCatchCount(0)
+          }}
+        />
+      )}
     </main>
   )
 }

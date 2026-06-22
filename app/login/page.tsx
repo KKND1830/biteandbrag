@@ -1,5 +1,5 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { supabase } from '../../utils/supabase'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
@@ -10,6 +10,19 @@ export default function Login() {
   const [password, setPassword] = useState('')
   const [message, setMessage] = useState('')
   const [loading, setLoading] = useState(false)
+  const [isInAppBrowser, setIsInAppBrowser] = useState(false)
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const ua = navigator.userAgent || navigator.vendor || (window as any).opera
+      const isMessenger = /FBAN\/Messenger|FBAV\/Messenger|FB_IAB\/MESSENGER/i.test(ua)
+      const isFacebook = /FBAN\/FBIOS|FBAV\//i.test(ua)
+      const isLine = /Line/i.test(ua)
+      if (isMessenger || isFacebook || isLine) {
+        setIsInAppBrowser(true)
+      }
+    }
+  }, [])
 
   // ฟังก์ชันสำหรับสมัครสมาชิก
   const handleSignUp = async () => {
@@ -72,6 +85,12 @@ export default function Login() {
 
   // ฟังก์ชันล็อกอินด้วย Facebook
   const handleFacebookLogin = async () => {
+    if (isInAppBrowser) {
+      const confirmLogin = window.confirm(
+        '⚠️ คุณกำลังใช้งานผ่านแอปพลิเคชัน (In-App Browser) ซึ่ง Facebook อาจบล็อกการล็อกอินนี้\n\nต้องการดำเนินการต่อหรือไม่? (หากเกิดข้อผิดพลาด แนะนำให้กดปุ่ม ⋯ ที่มุมขวาบนเพื่อเปิดหน้านี้ในเบราว์เซอร์ Safari หรือ Chrome ครับ)'
+      )
+      if (!confirmLogin) return
+    }
     setLoading(true)
     setMessage('กำลังเชื่อมต่อกับ Facebook...')
     const { error } = await supabase.auth.signInWithOAuth({
@@ -96,7 +115,20 @@ export default function Login() {
           <span className="text-yellow-500 font-bold text-sm">Bite & Brag 🎣</span>
         </div>
         <h1 className="text-3xl font-bold text-yellow-500 mb-6 text-center">ลงทะเบียนนักตกปลา 🎣</h1>
-        
+
+        {isInAppBrowser && (
+          <div className="mb-6 p-4 bg-yellow-950/80 border border-yellow-800/60 rounded-lg text-yellow-200 text-sm">
+            <div className="flex gap-2 font-bold mb-1 items-center text-yellow-400">
+              <span>⚠️</span> แนะนำ: เปิดในเบราว์เซอร์หลัก
+            </div>
+            <p className="text-xs text-yellow-300/80 leading-relaxed">
+              ขณะนี้คุณกำลังเปิดเว็บผ่านแอพ (เช่น Messenger / Facebook / Line) การเชื่อมต่อกับ Facebook หรือ Google อาจทำงานไม่สมบูรณ์
+            </p>
+            <p className="text-xs mt-2 font-semibold text-yellow-400">
+              👉 วิธีแก้: กดปุ่ม <span className="bg-stone-900 px-1 py-0.5 rounded border border-stone-700 font-mono text-xs">⋮</span> หรือ <span className="bg-stone-900 px-1 py-0.5 rounded border border-stone-700 font-mono text-xs">⋯</span> ที่มุมขวาบน แล้วเลือก <strong className="underline text-yellow-300">"เปิดในเบราว์เซอร์" (Open in Browser)</strong> เพื่อการล็อกอินที่เสถียรครับ
+            </p>
+          </div>
+        )}
         <input 
           type="email" 
           placeholder="อีเมลของคุณ" 
