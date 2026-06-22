@@ -32,7 +32,7 @@ export default function Home() {
   const [sharingLogCatchCount, setSharingLogCatchCount] = useState<number>(0)
   const [expandedComments, setExpandedComments] = useState<Record<string, boolean>>({})
   const [commentInputs, setCommentInputs] = useState<Record<string, string>>({})
-  const [viewType, setViewType] = useState<'feed' | 'map'>('feed')
+  const [viewType, setViewType] = useState<'feed' | 'map' | 'rank'>('feed')
 
   useEffect(() => {
     initHome()
@@ -170,6 +170,46 @@ export default function Home() {
     setExpandedComments(prev => ({ ...prev, [logId]: !prev[logId] }))
   }
 
+  const getLeaderboardData = () => {
+    const usersMap: Record<string, {
+      userId: string
+      displayName: string
+      catchCount: number
+      totalWeight: number
+      points: number
+    }> = {}
+
+    filteredLogs.forEach(log => {
+      const userId = log.user_id || `guest_${log.author_name || 'anonymous'}`
+      const displayName = log.profiles?.display_name || log.author_name || 'นักตกปลาลึกลับ'
+
+      if (!usersMap[userId]) {
+        usersMap[userId] = {
+          userId,
+          displayName,
+          catchCount: 0,
+          totalWeight: 0,
+          points: 0
+        }
+      }
+
+      usersMap[userId].catchCount += 1
+      usersMap[userId].totalWeight += log.weight || 0
+    })
+
+    return Object.values(usersMap)
+      .map(user => {
+        user.points = Math.round((user.totalWeight * 10) + (user.catchCount * 5))
+        return user
+      })
+      .sort((a, b) => {
+        if (b.points !== a.points) {
+          return b.points - a.points
+        }
+        return b.totalWeight - a.totalWeight
+      })
+  }
+
   const handleDelete = async (id: string) => {
     const confirmDelete = window.confirm('ต้องการลบผลงานนี้ใช่หรือไม่? 🗑️')
     if (!confirmDelete) return
@@ -299,8 +339,8 @@ export default function Home() {
           <button onClick={() => setViewMode('mine')} className={`flex-1 py-2.5 text-sm font-bold rounded transition-colors ${viewMode === 'mine' ? 'bg-yellow-600 text-stone-900 shadow' : 'text-stone-400 hover:text-stone-200'}`}>👤 ผลงานของฉัน ({myLogs.length})</button>
         </div>
 
-        {/* 📜/🗺️ แถบเลือกประเภทมุมมองแผนที่หรือผลงาน */}
-        <div className="flex gap-2 mb-6 bg-stone-850 p-1 rounded-lg border border-stone-800 shadow-inner">
+        {/* 📜/🗺️/🏆 แถบเลือกประเภทมุมมองแผนที่ ผลงาน หรือจัดอันดับ */}
+        <div className="flex gap-2 mb-6 bg-stone-850 p-1 rounded-lg border border-stone-800 shadow-inner flex-wrap md:flex-nowrap">
           <button 
             onClick={() => setViewType('feed')} 
             className={`flex-1 py-2 text-xs font-bold rounded transition-all flex items-center justify-center gap-1.5 cursor-pointer ${viewType === 'feed' ? 'bg-stone-700 text-yellow-500 shadow border border-stone-600' : 'text-stone-400 hover:text-stone-200'}`}
@@ -312,6 +352,12 @@ export default function Home() {
             className={`flex-1 py-2 text-xs font-bold rounded transition-all flex items-center justify-center gap-1.5 cursor-pointer ${viewType === 'map' ? 'bg-stone-700 text-yellow-500 shadow border border-stone-600' : 'text-stone-400 hover:text-stone-200'}`}
           >
             <span>🗺️</span> แผนที่หมาย (Map View)
+          </button>
+          <button 
+            onClick={() => setViewType('rank')} 
+            className={`flex-1 py-2 text-xs font-bold rounded transition-all flex items-center justify-center gap-1.5 cursor-pointer ${viewType === 'rank' ? 'bg-stone-700 text-yellow-500 shadow border border-stone-600' : 'text-stone-400 hover:text-stone-200'}`}
+          >
+            <span>🏆</span> อันดับนักตกปลา (Leaderboard)
           </button>
         </div>
 
@@ -371,6 +417,81 @@ export default function Home() {
         ) : viewType === 'map' ? (
           <div className="mb-6">
             <InteractiveMap logs={filteredLogs} />
+          </div>
+        ) : viewType === 'rank' ? (
+          <div className="bg-stone-800 rounded-lg border border-stone-700 shadow-xl overflow-hidden p-6 mb-6">
+            <div className="flex items-center gap-3 mb-6 border-b border-stone-700 pb-4">
+              <span className="text-3xl">🏆</span>
+              <div>
+                <h2 className="text-xl font-bold text-white">อันดับจ้าวแห่งสายน้ำ</h2>
+                <p className="text-stone-400 text-xs mt-0.5">วัดจากฝีมือ ความขยัน และขนาดของผลงาน</p>
+              </div>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-sm text-stone-300">
+                <thead>
+                  <tr className="border-b border-stone-700 text-stone-400 text-xs uppercase tracking-wider">
+                    <th className="py-3 px-4 text-center">อันดับ</th>
+                    <th className="py-3 px-4">นักตกปลา</th>
+                    <th className="py-3 px-4 text-center">จำนวนปลา (ตัว)</th>
+                    <th className="py-3 px-4 text-right">น้ำหนักรวม (กก.)</th>
+                    <th className="py-3 px-4 text-right text-yellow-500 font-bold">คะแนนสะสม</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-stone-750">
+                  {getLeaderboardData().length > 0 ? (
+                    getLeaderboardData().map((user, index) => {
+                      const rank = index + 1
+                      let rankBadge = `${rank}`
+                      let rowHighlight = ''
+
+                      if (rank === 1) {
+                        rankBadge = '🥇'
+                        rowHighlight = 'bg-yellow-500/5 border-l-4 border-l-yellow-500 font-bold text-white'
+                      } else if (rank === 2) {
+                        rankBadge = '🥈'
+                        rowHighlight = 'bg-stone-300/5 border-l-4 border-l-stone-300 font-bold text-white'
+                      } else if (rank === 3) {
+                        rankBadge = '🥉'
+                        rowHighlight = 'bg-amber-700/5 border-l-4 border-l-amber-700 font-bold text-white'
+                      }
+
+                      return (
+                        <tr key={user.userId} className={`hover:bg-stone-700/30 transition-colors ${rowHighlight}`}>
+                          <td className="py-4 px-4 text-center text-lg">{rankBadge}</td>
+                          <td className="py-4 px-4">
+                            <span className="bg-stone-700/40 px-2.5 py-1 rounded text-xs border border-stone-600/50">
+                              {user.displayName}
+                            </span>
+                          </td>
+                          <td className="py-4 px-4 text-center font-mono">{user.catchCount}</td>
+                          <td className="py-4 px-4 text-right font-mono">{user.totalWeight.toFixed(2)}</td>
+                          <td className="py-4 px-4 text-right text-yellow-500 font-black font-mono">{user.points}</td>
+                        </tr>
+                      )
+                    })
+                  ) : (
+                    <tr>
+                      <td colSpan={5} className="py-8 text-center text-stone-500 text-xs">
+                        ยังไม่มีข้อมูลการจัดอันดับ 🎣
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="mt-6 p-4.5 bg-stone-900/60 rounded-lg border border-stone-750 text-xs text-stone-400 space-y-1.5 leading-relaxed">
+              <p className="font-bold text-yellow-500 flex items-center gap-1">
+                <span>💡</span> กติกาการคิดคะแนนและจัดอันดับ:
+              </p>
+              <ul className="list-disc list-inside pl-1 space-y-1 text-stone-400">
+                <li>ปลาแต่ละตัวที่บันทึกสำเร็จจะได้รับ <strong className="text-stone-300">5 คะแนน</strong></li>
+                <li>น้ำหนักรวมของปลาที่ตกได้ คิดกิโลกรัมละ <strong className="text-stone-300">10 คะแนน</strong> (เช่น ปลาหนัก 1.5 กิโลกรัม = 15 คะแนน)</li>
+                <li>หากคะแนนเท่ากัน จะเรียงลำดับจากคนที่มี **น้ำหนักปลารวม** มากกว่า</li>
+              </ul>
+            </div>
           </div>
         ) : displayedLogs.length === 0 ? (
           <div className="text-center p-8 bg-stone-800 rounded-lg border border-stone-700 shadow-xl">
