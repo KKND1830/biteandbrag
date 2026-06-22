@@ -112,8 +112,18 @@ export default function ShareCardModal({ log, catchCount, onClose }: ShareCardMo
           try {
             await new Promise<void>((resolve) => {
               const img = new Image()
+              
+              // ตั้งระบบดักจับ Timeout 2.5 วินาทีกันรูปไม่โหลดหรือค้าง
+              const timeoutId = setTimeout(() => {
+                console.warn('Image load timed out')
+                setImageError(true)
+                drawPlaceholder('โหลดภาพปลาไม่สำเร็จ (หมดเวลาเชื่อมต่อ)')
+                resolve()
+              }, 2500)
+
               img.crossOrigin = 'anonymous'
               img.onload = () => {
+                clearTimeout(timeoutId)
                 ctx.save()
                 
                 // คลิปขอบเขตเพื่อไม่ให้รูปภาพล้นกรอบ
@@ -150,6 +160,7 @@ export default function ShareCardModal({ log, catchCount, onClose }: ShareCardMo
                 resolve()
               }
               img.onerror = () => {
+                clearTimeout(timeoutId)
                 console.warn('Image load error:', log.image_url)
                 setImageError(true)
                 drawPlaceholder('ภาพถ่ายปลา (ติดปัญหา CORS รูปภาพ)')
@@ -164,6 +175,38 @@ export default function ShareCardModal({ log, catchCount, onClose }: ShareCardMo
         } else {
           drawPlaceholder('ไม่ได้แนบรูปภาพผลงาน')
         }
+      }
+
+      // วาดแผนที่สำรองกรณีไทล์โหลดไม่ได้หรือติด CORS
+      const drawMapPlaceholder = (text: string) => {
+        ctx.save()
+        const placeGrad = ctx.createLinearGradient(mapX, frameY, mapX + mapW, frameY + frameH)
+        placeGrad.addColorStop(0, '#292524')
+        placeGrad.addColorStop(1, '#1c1917')
+        ctx.fillStyle = placeGrad
+        ctx.fillRect(mapX, frameY, mapW, frameH)
+
+        ctx.lineWidth = 1.5
+        ctx.strokeStyle = `${lvlInfo.colorHex}50`
+        ctx.strokeRect(mapX, frameY, mapW, frameH)
+
+        ctx.fillStyle = '#44403c'
+        ctx.font = '40px Arial'
+        ctx.textAlign = 'center'
+        ctx.fillText('📍', mapX + mapW / 2, frameY + frameH / 2 - 20)
+
+        ctx.fillStyle = '#e7e5e4'
+        ctx.font = 'bold 12px Arial, sans-serif'
+        ctx.fillText(log.location_name || 'หมายตกปลา', mapX + mapW / 2, frameY + frameH / 2 + 15)
+
+        ctx.fillStyle = '#78716c'
+        ctx.font = '10px Arial, sans-serif'
+        ctx.fillText(`พิกัด: ${log.latitude.toFixed(4)}, ${log.longitude.toFixed(4)}`, mapX + mapW / 2, frameY + frameH / 2 + 35)
+
+        ctx.fillStyle = '#57534e'
+        ctx.font = '9px Arial, sans-serif'
+        ctx.fillText(text, mapX + mapW / 2, frameY + frameH / 2 + 55)
+        ctx.restore()
       }
 
       // 4.2 วาดแผนที่จาก OpenStreetMap
@@ -190,62 +233,95 @@ export default function ShareCardModal({ log, catchCount, onClose }: ShareCardMo
         const tileMinY = Math.floor(top / 256)
         const tileMaxY = Math.floor((top + frameH) / 256)
 
-        ctx.save()
-        ctx.beginPath()
-        ctx.rect(mapX, frameY, mapW, frameH)
-        ctx.clip()
+        // กำหนด Timeout สำหรับโหลดแผนที่ไทล์ 2.5 วินาที
+        let mapLoaded = false
+        const mapTimeout = setTimeout(() => {
+          if (!mapLoaded) {
+            console.warn('Map tiles load timed out, drawing fallback card')
+            mapLoaded = true
+            drawMapPlaceholder('แผนที่ (หมดเวลาเชื่อมต่อ)')
+          }
+        }, 2500)
 
-        // โหลดและเย็บไทล์ OSM (Stitch OpenStreetMap Tiles)
-        const tilePromises: Promise<void>[] = []
-        for (let tx = tileMinX; tx <= tileMaxX; tx++) {
-          for (let ty = tileMinY; ty <= tileMaxY; ty++) {
-            const sub = ['a', 'b', 'c'][Math.abs(tx + ty) % 3]
-            const tileUrl = `https://${sub}.tile.openstreetmap.org/${mapZoom}/${tx}/${ty}.png`
-            
-            tilePromises.push(
-              new Promise<void>((resolve) => {
-                const tileImg = new Image()
-                tileImg.crossOrigin = 'anonymous'
-                tileImg.onload = () => {
-                  const dx = mapX + (tx * 256 - left)
-                  const dy = frameY + (ty * 256 - top)
-                  ctx.drawImage(tileImg, dx, dy, 256, 256)
-                  resolve()
-                }
-                tileImg.onerror = () => resolve() 
-                tileImg.src = tileUrl
-              })
-            )
+        try {
+          // โหลดและเย็บไทล์ OSM (Stitch OpenStreetMap Tiles)
+          const tilePromises: Promise<boolean>[] = []
+          for (let tx = tileMinX; tx <= tileMaxX; tx++) {
+            for (let ty = tileMinY; ty <= tileMaxY; ty++) {
+              const sub = ['a', 'b', 'c'][Math.abs(tx + ty) % 3]
+              const tileUrl = `https://${sub}.tile.openstreetmap.org/${mapZoom}/${tx}/${ty}.png`
+              
+              tilePromises.push(
+                new Promise<boolean>((resolve) => {
+                  const tileImg = new Image()
+                  tileImg.crossOrigin = 'anonymous'
+                  tileImg.onload = () => {
+                    resolve(true)
+                    // ถ้าระบบยังไม่หลุด Timeout ให้วาดแผ่นแผนที่
+                    if (!mapLoaded) {
+                      ctx.save()
+                      ctx.beginPath()
+                      ctx.rect(mapX, frameY, mapW, frameH)
+                      ctx.clip()
+                      const dx = mapX + (tx * 256 - left)
+                      const dy = frameY + (ty * 256 - top)
+                      ctx.drawImage(tileImg, dx, dy, 256, 256)
+                      ctx.restore()
+                    }
+                  }
+                  tileImg.onerror = () => resolve(false) 
+                  tileImg.src = tileUrl
+                })
+              )
+            }
+          }
+
+          const results = await Promise.all(tilePromises)
+          const allSuccessful = results.every(res => res === true)
+
+          clearTimeout(mapTimeout)
+
+          if (!mapLoaded) {
+            mapLoaded = true
+            if (allSuccessful) {
+              // วาดมาร์กเกอร์ตรงจุดศูนย์กลาง
+              ctx.save()
+              const markerX = mapX + mapW / 2
+              const markerY = frameY + frameH / 2
+
+              // วงกลมสีขาว
+              ctx.beginPath()
+              ctx.arc(markerX, markerY, 8, 0, Math.PI * 2)
+              ctx.fillStyle = '#ffffff'
+              ctx.fill()
+              ctx.lineWidth = 1.5
+              ctx.strokeStyle = 'rgba(0,0,0,0.35)'
+              ctx.stroke()
+
+              // จุดสีเหลือง
+              ctx.beginPath()
+              ctx.arc(markerX, markerY, 4.5, 0, Math.PI * 2)
+              ctx.fillStyle = '#eab308' // yellow-500
+              ctx.fill()
+
+              ctx.restore()
+
+              // เส้นขอบแผนที่
+              ctx.lineWidth = 2
+              ctx.strokeStyle = lvlInfo.colorHex
+              ctx.strokeRect(mapX, frameY, mapW, frameH)
+            } else {
+              // กรณีบางไทล์ติด CORS หรือบล็อกสัญญาณ
+              drawMapPlaceholder('แผนที่ (ติดข้อจำกัด CORS หรือเชื่อมต่อล้มเหลว)')
+            }
+          }
+        } catch (e) {
+          clearTimeout(mapTimeout)
+          if (!mapLoaded) {
+            mapLoaded = true
+            drawMapPlaceholder('แผนที่ (โหลดขัดข้อง)')
           }
         }
-
-        await Promise.all(tilePromises)
-
-        // วาดมาร์กเกอร์ตรงจุดศูนย์กลาง
-        const markerX = mapX + mapW / 2
-        const markerY = frameY + frameH / 2
-
-        // วงกลมสีขาว
-        ctx.beginPath()
-        ctx.arc(markerX, markerY, 8, 0, Math.PI * 2)
-        ctx.fillStyle = '#ffffff'
-        ctx.fill()
-        ctx.lineWidth = 1.5
-        ctx.strokeStyle = 'rgba(0,0,0,0.35)'
-        ctx.stroke()
-
-        // จุดสีเหลือง
-        ctx.beginPath()
-        ctx.arc(markerX, markerY, 4.5, 0, Math.PI * 2)
-        ctx.fillStyle = '#eab308' // yellow-500
-        ctx.fill()
-
-        ctx.restore()
-
-        // เส้นขอบแผนที่
-        ctx.lineWidth = 2
-        ctx.strokeStyle = lvlInfo.colorHex
-        ctx.strokeRect(mapX, frameY, mapW, frameH)
       }
 
       // วาดภาพปลาและแผนที่ขนานกัน
