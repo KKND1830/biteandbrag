@@ -297,8 +297,8 @@ export default function Home() {
 
               return (
                 <div key={log.id} className="overflow-hidden bg-stone-800 rounded-lg shadow-xl border border-stone-700 hover:border-yellow-600 transition-colors">
-                  {/* แสดงรูปภาพคู่กับแผนที่จำลอง */}
-                  {(log.image_url || (log.latitude && log.longitude)) && (
+                  {/* แสดงรูปภาพคู่กับแผนที่จำลอง (จำกัดเฉพาะสมาชิกที่เข้าสู่ระบบแล้วเท่านั้น) */}
+                  {currentUserId && (log.image_url || (log.latitude && log.longitude)) ? (
                     <div className="flex flex-col sm:flex-row h-[360px] sm:h-64 bg-stone-950 overflow-hidden relative border-b border-stone-700">
                       {log.image_url && (
                         <div className={`${log.latitude && log.longitude ? 'w-full sm:w-1/2 h-1/2 sm:h-full' : 'w-full h-full'} relative`}>
@@ -311,6 +311,13 @@ export default function Home() {
                         </div>
                       )}
                     </div>
+                  ) : (
+                    /* สำหรับผู้ใช้งานทั่วไป/ผู้เยี่ยมชมที่ไม่ได้ล็อกอิน (จะเห็นเฉพาะรูปภาพเต็มความกว้าง) */
+                    log.image_url && (
+                      <div className="w-full h-64 bg-stone-950 overflow-hidden relative border-b border-stone-700">
+                        <img src={log.image_url} alt={log.fish_name} className="w-full h-full object-cover" />
+                      </div>
+                    )
                   )}
                   <div className="p-6">
                     <div className="flex justify-between items-start mb-4 border-b border-stone-700 pb-3">
@@ -338,15 +345,24 @@ export default function Home() {
                         <span className="inline-flex items-center gap-2 flex-wrap">
                           <span>{log.location_name || 'ไม่ระบุ'}</span>
                           {log.latitude && log.longitude && (
-                            <a 
-                              href={`https://www.google.com/maps/search/?api=1&query=${log.latitude},${log.longitude}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="inline-flex items-center gap-1 text-[11px] bg-yellow-500/10 text-yellow-500 border border-yellow-500/30 hover:bg-yellow-500/20 px-2 py-0.5 rounded transition-all"
-                              title="เปิดนำทางบน Google Maps"
-                            >
-                              📍 นำทาง
-                            </a>
+                            currentUserId ? (
+                              <a 
+                                href={`https://www.google.com/maps/search/?api=1&query=${log.latitude},${log.longitude}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1 text-[11px] bg-yellow-500/10 text-yellow-500 border border-yellow-500/30 hover:bg-yellow-500/20 px-2 py-0.5 rounded transition-all"
+                                title="เปิดนำทางบน Google Maps"
+                              >
+                                📍 นำทาง
+                              </a>
+                            ) : (
+                              <span 
+                                className="inline-flex items-center gap-1 text-[10px] bg-stone-700/50 text-stone-400 border border-stone-600/30 px-2 py-0.5 rounded"
+                                title="ต้องเข้าสู่ระบบเพื่อนำทาง"
+                              >
+                                🔒 เข้าสู่ระบบเพื่อดูแผนที่
+                              </span>
+                            )
                           )}
                         </span>
                       </p>
