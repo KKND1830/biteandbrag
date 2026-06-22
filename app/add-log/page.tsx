@@ -2,6 +2,12 @@
 import { useState } from 'react'
 import { supabase } from '../../utils/supabase'
 import Link from 'next/link'
+import dynamic from 'next/dynamic'
+
+const MapPicker = dynamic(() => import('../../components/MapPicker'), {
+  ssr: false,
+  loading: () => <div className="w-full h-[250px] bg-stone-950 flex items-center justify-center text-stone-400">กำลังโหลดแผนที่...</div>
+})
 
 export default function AddLog() {
   const [fishName, setFishName] = useState('')
@@ -151,14 +157,24 @@ export default function AddLog() {
               className="w-full p-3 bg-stone-700 rounded text-white focus:ring-2 focus:ring-yellow-500" placeholder="เช่น แม่น้ำชี" />
           </div>
 
-          <div className="p-4 bg-stone-900/30 rounded border border-stone-700 space-y-3">
+          <div className="p-4 bg-stone-900/30 rounded border border-stone-700 space-y-4">
             <div className="flex justify-between items-center">
-              <span className="text-sm font-semibold text-yellow-500">📍 พิกัดหมายตกปลา (สำหรับแผนที่)</span>
+              <span className="text-sm font-semibold text-yellow-500">📍 พิกัดหมายตกปลา (บนแผนที่)</span>
               <button type="button" onClick={handleGetCurrentLocation}
                 className="px-3 py-1 bg-stone-600 hover:bg-stone-500 text-white rounded text-xs font-semibold transition-colors flex items-center gap-1">
                 <span>📍</span> ดึงพิกัดปัจจุบัน
               </button>
             </div>
+
+            <MapPicker 
+              lat={latitude ? parseFloat(latitude) : null}
+              lng={longitude ? parseFloat(longitude) : null}
+              onChange={(newLat, newLng) => {
+                setLatitude(newLat.toString())
+                setLongitude(newLng.toString())
+              }}
+            />
+
             <div className="flex gap-4">
               <div className="w-1/2">
                 <label className="block mb-1 text-xs text-stone-400">ละติจูด (Latitude)</label>
