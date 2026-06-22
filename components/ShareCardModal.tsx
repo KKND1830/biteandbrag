@@ -380,7 +380,20 @@ export default function ShareCardModal({ log, catchCount, onClose }: ShareCardMo
     }
 
     drawCard()
-  }, [log, catchCount, lvlInfo, hasCoords])
+  }, [
+    log.id,
+    log.image_url,
+    log.fish_name,
+    log.location_name,
+    log.weight,
+    log.length,
+    log.latitude,
+    log.longitude,
+    log.created_at,
+    catchCount,
+    totalPoints,
+    hasCoords
+  ])
 
   const handleDownload = () => {
     if (!downloadUrl) return
