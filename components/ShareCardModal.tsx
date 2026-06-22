@@ -14,6 +14,7 @@ export default function ShareCardModal({ log, catchCount, onClose }: ShareCardMo
   const [loading, setLoading] = useState(true)
   const [downloadUrl, setDownloadUrl] = useState<string>('')
   const [imageError, setImageError] = useState(false)
+  const [mapError, setMapError] = useState(false)
   
   const totalPoints = log.profiles?.total_points || 0
   const lvlInfo = getUserLevelInfo(catchCount, totalPoints)
@@ -113,7 +114,7 @@ export default function ShareCardModal({ log, catchCount, onClose }: ShareCardMo
             await new Promise<void>((resolve) => {
               const img = new Image()
               
-              // ตั้งระบบดักจับ Timeout 2.5 วินาทีกันรูปไม่โหลดหรือค้าง
+              // ตั้งระบบดักจับ Timeout 2.5 วินาที
               const timeoutId = setTimeout(() => {
                 console.warn('Image load timed out')
                 setImageError(true)
@@ -124,39 +125,43 @@ export default function ShareCardModal({ log, catchCount, onClose }: ShareCardMo
               img.crossOrigin = 'anonymous'
               img.onload = () => {
                 clearTimeout(timeoutId)
-                ctx.save()
-                
-                // คลิปขอบเขตเพื่อไม่ให้รูปภาพล้นกรอบ
-                ctx.beginPath()
-                ctx.rect(fishX, frameY, fishW, frameH)
-                ctx.clip()
+                try {
+                  ctx.save()
+                  // คลิปขอบเขตเพื่อไม่ให้รูปภาพล้นกรอบ
+                  ctx.beginPath()
+                  ctx.rect(fishX, frameY, fishW, frameH)
+                  ctx.clip()
 
-                // คำนวณขยายรูปแบบครอบพอดี (Object-cover)
-                const imgRatio = img.width / img.height
-                const targetRatio = fishW / frameH
-                let baseScale = 1
-                
-                if (imgRatio > targetRatio) {
-                  baseScale = frameH / img.height
-                } else {
-                  baseScale = fishW / img.width
+                  // คำนวณขยายรูปแบบครอบพอดี (Object-cover)
+                  const imgRatio = img.width / img.height
+                  const targetRatio = fishW / frameH
+                  let baseScale = 1
+                  
+                  if (imgRatio > targetRatio) {
+                    baseScale = frameH / img.height
+                  } else {
+                    baseScale = fishW / img.width
+                  }
+
+                  const drawW = img.width * baseScale
+                  const drawH = img.height * baseScale
+
+                  // กึ่งกลางภาพพอดี
+                  const drawX = fishX + (fishW - drawW) / 2
+                  const drawY = frameY + (frameH - drawH) / 2
+
+                  ctx.drawImage(img, drawX, drawY, drawW, drawH)
+                  ctx.restore()
+
+                  // วาดขอบรอบรูปปลา
+                  ctx.lineWidth = 2
+                  ctx.strokeStyle = lvlInfo.colorHex
+                  ctx.strokeRect(fishX, frameY, fishW, frameH)
+                } catch (e) {
+                  console.error('Error drawing image on canvas:', e)
+                  setImageError(true)
+                  drawPlaceholder('ภาพถ่ายปลา (ไม่สามารถเรนเดอร์ได้)')
                 }
-
-                const drawW = img.width * baseScale
-                const drawH = img.height * baseScale
-
-                // กึ่งกลางภาพพอดี
-                const drawX = fishX + (fishW - drawW) / 2
-                const drawY = frameY + (frameH - drawH) / 2
-
-                ctx.drawImage(img, drawX, drawY, drawW, drawH)
-                ctx.restore()
-
-                // วาดขอบรอบรูปปลา
-                ctx.lineWidth = 2
-                ctx.strokeStyle = lvlInfo.colorHex
-                ctx.strokeRect(fishX, frameY, fishW, frameH)
-
                 resolve()
               }
               img.onerror = () => {
@@ -209,122 +214,64 @@ export default function ShareCardModal({ log, catchCount, onClose }: ShareCardMo
         ctx.restore()
       }
 
-      // 4.2 วาดแผนที่จาก OpenStreetMap
+      // 4.2 วาดแผนที่จาก Yandex Static Maps (โหลดรูปเดียว รวดเร็ว และรองรับ CORS สมบูรณ์)
       const drawOSMMap = async () => {
         if (!hasCoords) return
         
         const lat = log.latitude
         const lng = log.longitude
         const mapZoom = 14
+        
+        // Yandex Static Maps URL (longitude มาก่อน latitude, พร้อมวางจุดปักมาร์กเกอร์สีเหลืองเรืองแสงตรงกลาง)
+        const mapUrl = `https://static-maps.yandex.ru/1.x/?ll=${lng},${lat}&z=${mapZoom}&size=${mapW},${frameH}&l=map&pt=${lng},${lat},pm2ywm`
 
-        // คำนวณตำแหน่งพิกเซลจากพิกัดตามสูตร Mercator Projection
-        const xFractional = ((lng + 180) / 360) * Math.pow(2, mapZoom)
-        const latRad = (lat * Math.PI) / 180
-        const yFractional = ((1 - Math.log(Math.tan(latRad) + 1 / Math.cos(latRad)) / Math.PI) / 2) * Math.pow(2, mapZoom)
-
-        const px = xFractional * 256
-        const py = yFractional * 256
-
-        const left = px - mapW / 2
-        const top = py - frameH / 2
-
-        const tileMinX = Math.floor(left / 256)
-        const tileMaxX = Math.floor((left + mapW) / 256)
-        const tileMinY = Math.floor(top / 256)
-        const tileMaxY = Math.floor((top + frameH) / 256)
-
-        // ฟังก์ชันโหลดไทล์แผนที่ทั้งหมดพร้อมจำกัดเวลา
-        const loadAllTiles = () => {
-          return new Promise<boolean>((resolveOuter) => {
-            let finished = false
-
+        try {
+          await new Promise<void>((resolve) => {
+            const mapImg = new Image()
             const timeoutId = setTimeout(() => {
-              if (!finished) {
-                finished = true
-                console.warn('Map tiles load timed out')
-                resolveOuter(false)
-              }
+              console.warn('Map load timed out')
+              setMapError(true)
+              drawMapPlaceholder('แผนที่ (หมดเวลาเชื่อมต่อ)')
+              resolve()
             }, 2500)
 
-            const tilePromises: Promise<boolean>[] = []
-            for (let tx = tileMinX; tx <= tileMaxX; tx++) {
-              for (let ty = tileMinY; ty <= tileMaxY; ty++) {
-                const sub = ['a', 'b', 'c'][Math.abs(tx + ty) % 3]
-                const tileUrl = `https://${sub}.tile.openstreetmap.org/${mapZoom}/${tx}/${ty}.png`
-                
-                tilePromises.push(
-                  new Promise<boolean>((resolveTile) => {
-                    const tileImg = new Image()
-                    tileImg.crossOrigin = 'anonymous'
-                    tileImg.onload = () => {
-                      if (!finished) {
-                        ctx.save()
-                        ctx.beginPath()
-                        ctx.rect(mapX, frameY, mapW, frameH)
-                        ctx.clip()
-                        const dx = mapX + (tx * 256 - left)
-                        const dy = frameY + (ty * 256 - top)
-                        ctx.drawImage(tileImg, dx, dy, 256, 256)
-                        ctx.restore()
-                      }
-                      resolveTile(true)
-                    }
-                    tileImg.onerror = () => {
-                      resolveTile(false)
-                    }
-                    tileImg.src = tileUrl
-                  })
-                )
+            mapImg.crossOrigin = 'anonymous'
+            mapImg.onload = () => {
+              clearTimeout(timeoutId)
+              try {
+                ctx.save()
+                ctx.beginPath()
+                ctx.rect(mapX, frameY, mapW, frameH)
+                ctx.clip()
+                ctx.drawImage(mapImg, mapX, frameY, mapW, frameH)
+                ctx.restore()
+
+                // วาดเส้นขอบแผนที่
+                ctx.lineWidth = 2
+                ctx.strokeStyle = lvlInfo.colorHex
+                ctx.strokeRect(mapX, frameY, mapW, frameH)
+              } catch (e) {
+                console.error('Error drawing map image:', e)
+                setMapError(true)
+                drawMapPlaceholder('แผนที่ (เรนเดอร์ล้มเหลว)')
               }
+              resolve()
             }
-
-            Promise.all(tilePromises).then((results) => {
-              if (!finished) {
-                finished = true
-                clearTimeout(timeoutId)
-                const allSuccessful = results.every(res => res === true)
-                resolveOuter(allSuccessful)
-              }
-            })
+            mapImg.onerror = () => {
+              clearTimeout(timeoutId)
+              console.warn('Map image load error')
+              setMapError(true)
+              drawMapPlaceholder('แผนที่ (ไม่สามารถดาวน์โหลดได้)')
+              resolve()
+            }
+            mapImg.src = mapUrl
           })
-        }
-
-        const success = await loadAllTiles()
-
-        if (success) {
-          // วาดมาร์กเกอร์ตรงจุดศูนย์กลาง
-          ctx.save()
-          const markerX = mapX + mapW / 2
-          const markerY = frameY + frameH / 2
-
-          // วงกลมสีขาว
-          ctx.beginPath()
-          ctx.arc(markerX, markerY, 8, 0, Math.PI * 2)
-          ctx.fillStyle = '#ffffff'
-          ctx.fill()
-          ctx.lineWidth = 1.5
-          ctx.strokeStyle = 'rgba(0,0,0,0.35)'
-          ctx.stroke()
-
-          // จุดสีเหลือง
-          ctx.beginPath()
-          ctx.arc(markerX, markerY, 4.5, 0, Math.PI * 2)
-          ctx.fillStyle = '#eab308' // yellow-500
-          ctx.fill()
-
-          ctx.restore()
-
-          // เส้นขอบแผนที่
-          ctx.lineWidth = 2
-          ctx.strokeStyle = lvlInfo.colorHex
-          ctx.strokeRect(mapX, frameY, mapW, frameH)
-        } else {
-          // หากหมดเวลาหรือเกิดข้อผิดพลาดในการโหลดบางไทล์ ให้วาดภาพจำลองแทน
-          drawMapPlaceholder('แผนที่ (เชื่อมต่อหมดเวลา หรือมีข้อจำกัด CORS)')
+        } catch (e) {
+          drawMapPlaceholder('แผนที่ (โหลดขัดข้อง)')
         }
       }
 
-      // วาดภาพปลาและแผนที่ขนานกัน
+      // วาดภาพปลาและแผนที่คู่กัน
       await Promise.all([drawFishImage(), drawOSMMap()])
 
       // --- 5. วาดคำโปรยฟีลลิ่ง DOTA (Main Catchphrase) ---
@@ -483,9 +430,9 @@ export default function ShareCardModal({ log, catchCount, onClose }: ShareCardMo
         </div>
 
         {/* กล่องเตือนกรณีโหลดภาพติด CORS */}
-        {imageError && (
+        {(imageError || mapError) && (
           <div className="mb-6 p-2.5 bg-yellow-950/40 border border-yellow-900/30 rounded text-[10.5px] text-yellow-300 w-full text-center leading-normal">
-            ⚠️ พบข้อจำกัดสิทธิ์รูปภาพ จึงใช้วาดรูปปลาอาร์ตตัวแทนลงในการ์ด เพื่อความเสถียรในการดาวน์โหลด
+            ⚠️ พบข้อจำกัดสิทธิ์รูปภาพหรือแผนที่ จึงใช้วาดรูปตัวแทนบางส่วนลงในการ์ด เพื่อความเสถียรในการดาวน์โหลด
           </div>
         )}
 
