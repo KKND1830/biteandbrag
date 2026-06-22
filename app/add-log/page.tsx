@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { supabase } from '../../utils/supabase'
 import Link from 'next/link'
 import dynamic from 'next/dynamic'
+import { useRouter } from 'next/navigation'
 
 const MapPicker = dynamic(() => import('../../components/MapPicker'), {
   ssr: false,
@@ -10,6 +11,7 @@ const MapPicker = dynamic(() => import('../../components/MapPicker'), {
 })
 
 export default function AddLog() {
+  const router = useRouter()
   const [fishName, setFishName] = useState('')
   const [weight, setWeight] = useState('')
   const [length, setLength] = useState('')
@@ -114,9 +116,10 @@ export default function AddLog() {
     if (error) {
       setMessage('❌ บันทึกไม่สำเร็จ: ' + error.message)
     } else {
-      setMessage('✅ บันทึกผลงานสำเร็จแล้ว! หมานๆ ครับ')
-      setFishName(''); setWeight(''); setLength(''); setLocation(''); setLure(''); setImageFile(null);
-      setLatitude(''); setLongitude('');
+      setMessage('✅ บันทึกผลงานสำเร็จแล้ว! กำลังกลับหน้าหลัก...')
+      setTimeout(() => {
+        router.push('/')
+      }, 1500)
     }
     setLoading(false)
   }
