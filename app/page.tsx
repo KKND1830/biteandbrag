@@ -275,7 +275,7 @@ export default function Home() {
             {currentUserEmail ? (
               <div className="flex items-center gap-3">
                 <span className="hidden md:inline text-xs text-stone-400">
-                  สวัสดี, <strong className="text-yellow-400">{myDisplayName}</strong> 👑
+                  สวัสดี, <Link href={`/profile/${currentUserId}`} className="text-yellow-400 hover:underline font-bold">{myDisplayName}</Link> 👑
                 </span>
                 <Link href="/add-log" className="bg-yellow-600 hover:bg-yellow-500 text-stone-900 text-xs font-bold py-2 px-3 rounded transition-all shadow-md">
                   + เพิ่มผลงาน
@@ -464,9 +464,15 @@ export default function Home() {
                         <tr key={user.userId} className={`hover:bg-stone-700/30 transition-colors ${rowHighlight}`}>
                           <td className="py-4 px-4 text-center text-lg">{rankBadge}</td>
                           <td className="py-4 px-4">
-                            <span className="bg-stone-700/40 px-2.5 py-1 rounded text-xs border border-stone-600/50">
-                              {user.displayName}
-                            </span>
+                            {!user.userId.startsWith('guest_') ? (
+                              <Link href={`/profile/${user.userId}`} className="bg-stone-700/40 hover:bg-stone-600/60 px-2.5 py-1 rounded text-xs border border-stone-600/50 text-white font-medium transition-colors">
+                                {user.displayName}
+                              </Link>
+                            ) : (
+                              <span className="bg-stone-700/40 px-2.5 py-1 rounded text-xs border border-stone-600/50 text-stone-300">
+                                {user.displayName}
+                              </span>
+                            )}
                           </td>
                           <td className="py-4 px-4 text-center font-mono">{user.catchCount}</td>
                           <td className="py-4 px-4 text-right font-mono">{user.totalWeight.toFixed(2)}</td>
@@ -551,9 +557,17 @@ export default function Home() {
                           )}
                         </div>
                         <h2 className="text-2xl font-bold text-white mb-1">{log.fish_name}</h2>
-                        <p className="text-sm font-medium text-yellow-500 flex flex-wrap items-center gap-1.5">
+                         <p className="text-sm font-medium text-yellow-500 flex flex-wrap items-center gap-1.5">
                           <span>👤 ผู้โพสต์:</span>
-                          <span className="font-bold text-white bg-stone-700/50 px-2 py-0.5 rounded text-xs">{log.profiles?.display_name || log.author_name || 'นักตกปลาลึกลับ'}</span>
+                          {log.user_id ? (
+                            <Link href={`/profile/${log.user_id}`} className="font-bold text-white bg-stone-700/50 hover:bg-stone-650 px-2 py-0.5 rounded text-xs transition-all hover:text-yellow-400">
+                              {log.profiles?.display_name || log.author_name || 'นักตกปลาลึกลับ'}
+                            </Link>
+                          ) : (
+                            <span className="font-bold text-white bg-stone-700/50 px-2 py-0.5 rounded text-xs">
+                              {log.profiles?.display_name || log.author_name || 'นักตกปลาลึกลับ'}
+                            </span>
+                          )}
                           <span className={`inline-flex items-center gap-0.5 px-2 py-0.5 rounded text-[10px] font-black border leading-none ${authorLvlInfo.colorClass}`}>
                             {authorLvlInfo.title}
                           </span>
@@ -690,9 +704,15 @@ export default function Home() {
                               <div key={comment.id} className="bg-stone-850 p-3 rounded-lg border border-stone-750 flex justify-between items-start gap-2">
                                 <div className="flex-1 min-w-0">
                                   <div className="flex items-baseline gap-2 mb-1 flex-wrap">
-                                    <span className="text-xs font-bold text-yellow-400">
-                                      {comment.profiles?.display_name || 'นักตกปลา'}
-                                    </span>
+                                    {comment.user_id ? (
+                                      <Link href={`/profile/${comment.user_id}`} className="text-xs font-bold text-yellow-400 hover:underline">
+                                        {comment.profiles?.display_name || 'นักตกปลา'}
+                                      </Link>
+                                    ) : (
+                                      <span className="text-xs font-bold text-yellow-400">
+                                        {comment.profiles?.display_name || 'นักตกปลา'}
+                                      </span>
+                                    )}
                                     <span className="text-[10px] text-stone-500">
                                       {new Date(comment.created_at).toLocaleDateString('th-TH')} {new Date(comment.created_at).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })}
                                     </span>
