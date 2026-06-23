@@ -19,6 +19,7 @@ export default function ShareCardModal({ log, catchCount, onClose }: ShareCardMo
   const totalPoints = log.profiles?.total_points || 0
   const lvlInfo = getUserLevelInfo(catchCount, totalPoints)
   const hasCoords = log.latitude !== null && log.longitude !== null && log.latitude !== undefined && log.longitude !== undefined
+  const isSpot = log.fish_name?.startsWith('📍')
 
   useEffect(() => {
     const drawCard = async () => {
@@ -66,7 +67,7 @@ export default function ShareCardModal({ log, catchCount, onClose }: ShareCardMo
       ctx.fillStyle = '#a8a29e' // stone-400
       ctx.font = 'bold 13px Arial, sans-serif'
       ctx.textAlign = 'center'
-      ctx.fillText('🎣 BITE & BRAG RECORD 🎣', canvas.width / 2, 45)
+      ctx.fillText(isSpot ? '🗺️ BITE & BRAG SPOT 🗺️' : '🎣 BITE & BRAG RECORD 🎣', canvas.width / 2, 45)
 
       // --- 4. การจัดการพิกัดแบ่ง 2 ช่อง (รูปปลา + แผนที่) ---
       const frameY = 70
@@ -282,7 +283,8 @@ export default function ShareCardModal({ log, catchCount, onClose }: ShareCardMo
       ctx.shadowBlur = 18
       ctx.fillStyle = '#ffffff'
       ctx.font = '900 36px Arial, sans-serif'
-      ctx.fillText(lvlInfo.phrase, canvas.width / 2, phraseY)
+      ctx.fillText(isSpot ? '📍 BEAUTIFUL SPOT FOUND! 🗺️' : lvlInfo.phrase, canvas.width / 2, phraseY)
+      ctx.shadowBlur = 0 
       ctx.shadowBlur = 0 
 
       // --- 6. แสดงข้อมูลเลเวล (Badge) ---
@@ -339,14 +341,25 @@ export default function ShareCardModal({ log, catchCount, onClose }: ShareCardMo
       const col1 = 70
       const col2 = 330
       
-      drawTableCell('ชนิดปลา', log.fish_name || '-', col1, tableY + 20)
-      drawTableCell('สถานที่ตกปลา', log.location_name || '-', col2, tableY + 20)
+      if (isSpot) {
+        drawTableCell('ประเภทโพสต์', 'แนะนำหมายตกปลา 🗺️', col1, tableY + 20)
+        drawTableCell('ชื่อหมายตกปลา', log.location_name || '-', col2, tableY + 20)
 
-      drawTableCell('น้ำหนักตัวปลา', log.weight ? `${log.weight} กิโลกรัม` : '-', col1, tableY + 68)
-      drawTableCell('ความยาวตัวปลา', log.length ? `${log.length} เซนติเมตร` : '-', col2, tableY + 68)
+        drawTableCell('ละติจูด (Latitude)', log.latitude !== null && log.latitude !== undefined ? log.latitude.toFixed(6) : '-', col1, tableY + 68)
+        drawTableCell('ลองจิจูด (Longitude)', log.longitude !== null && log.longitude !== undefined ? log.longitude.toFixed(6) : '-', col2, tableY + 68)
 
-      drawTableCell('เหยื่อที่ใช้หลอกล่อ', log.lure_used || '-', col1, tableY + 116)
-      drawTableCell('วันที่บันทึกผลงาน', new Date(log.created_at).toLocaleDateString('th-TH', { day: 'numeric', month: 'long', year: 'numeric' }), col2, tableY + 116)
+        drawTableCell('เหยื่อแนะนำ', log.lure_used || '-', col1, tableY + 116)
+        drawTableCell('วันที่แนะนำหมาย', new Date(log.created_at).toLocaleDateString('th-TH', { day: 'numeric', month: 'long', year: 'numeric' }), col2, tableY + 116)
+      } else {
+        drawTableCell('ชนิดปลา', log.fish_name || '-', col1, tableY + 20)
+        drawTableCell('สถานที่ตกปลา', log.location_name || '-', col2, tableY + 20)
+
+        drawTableCell('น้ำหนักตัวปลา', log.weight ? `${log.weight} กิโลกรัม` : '-', col1, tableY + 68)
+        drawTableCell('ความยาวตัวปลา', log.length ? `${log.length} เซนติเมตร` : '-', col2, tableY + 68)
+
+        drawTableCell('เหยื่อที่ใช้หลอกล่อ', log.lure_used || '-', col1, tableY + 116)
+        drawTableCell('วันที่บันทึกผลงาน', new Date(log.created_at).toLocaleDateString('th-TH', { day: 'numeric', month: 'long', year: 'numeric' }), col2, tableY + 116)
+      }
 
       // --- 8. เส้นปิดท้ายตารางและข้อมูลท้ายรูป ---
       const tableBottomY = tableY + 155

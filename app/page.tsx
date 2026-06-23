@@ -180,6 +180,9 @@ export default function Home() {
     }> = {}
 
     filteredLogs.forEach(log => {
+      // Exclude spot recommendations from leaderboard statistics
+      if (log.fish_name?.startsWith('📍')) return
+
       const userId = log.user_id || `guest_${log.author_name || 'anonymous'}`
       const displayName = log.profiles?.display_name || log.author_name || 'นักตกปลาลึกลับ'
 
@@ -508,8 +511,8 @@ export default function Home() {
               const likeCount = log.likes?.length || 0;
               const hasLiked = log.likes?.some((like: any) => like.user_id === currentUserId);
 
-              // คำนวณหาจำนวนตัวสะสมที่ตกได้ของผู้โพสต์ล็อกนี้
-              const authorCatchCount = logs.filter((l) => l.user_id === log.user_id).length
+              // คำนวณหาจำนวนตัวสะสมที่ตกได้ของผู้โพสต์ล็อกนี้ (ไม่นับที่เป็นการปักหมุดหมายสวย)
+              const authorCatchCount = logs.filter((l) => l.user_id === log.user_id && !l.fish_name?.startsWith('📍')).length
               // คำนวณเลเวลผู้โพสต์
               const authorLvlInfo = getUserLevelInfo(authorCatchCount, log.profiles?.total_points || 0)
 
@@ -540,6 +543,13 @@ export default function Home() {
                   <div className="p-6">
                     <div className="flex justify-between items-start mb-4 border-b border-stone-700 pb-3">
                       <div>
+                        <div className="flex items-center gap-2 mb-1">
+                          {log.fish_name?.startsWith('📍') && (
+                            <span className="bg-yellow-500/10 text-yellow-400 border border-yellow-500/30 px-2 py-0.5 rounded text-[10px] font-extrabold">
+                              🗺️ หมายแนะนำ
+                            </span>
+                          )}
+                        </div>
                         <h2 className="text-2xl font-bold text-white mb-1">{log.fish_name}</h2>
                         <p className="text-sm font-medium text-yellow-500 flex flex-wrap items-center gap-1.5">
                           <span>👤 ผู้โพสต์:</span>
@@ -559,37 +569,75 @@ export default function Home() {
                         )}
                       </div>
                     </div>
-                    <div className="grid grid-cols-2 gap-4 text-stone-300 mb-6">
-                      <p><span className="text-stone-500 text-sm block">น้ำหนัก</span> {log.weight ? `${log.weight} กก.` : '-'}</p>
-                      <p><span className="text-stone-500 text-sm block">ความยาว</span> {log.length ? `${log.length} ซม.` : '-'}</p>
-                      <p>
-                        <span className="text-stone-500 text-sm block">หมายตกปลา</span>
-                        <span className="inline-flex items-center gap-2 flex-wrap">
-                          <span>{log.location_name || 'ไม่ระบุ'}</span>
-                          {log.latitude && log.longitude && (
-                            currentUserId ? (
-                              <a 
-                                href={`https://www.google.com/maps/search/?api=1&query=${log.latitude},${log.longitude}`}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="inline-flex items-center gap-1 text-[11px] bg-yellow-500/10 text-yellow-500 border border-yellow-500/30 hover:bg-yellow-500/20 px-2 py-0.5 rounded transition-all"
-                                title="เปิดนำทางบน Google Maps"
-                              >
-                                📍 นำทาง
-                              </a>
-                            ) : (
-                              <span 
-                                className="inline-flex items-center gap-1 text-[10px] bg-stone-700/50 text-stone-400 border border-stone-600/30 px-2 py-0.5 rounded"
-                                title="ต้องเข้าสู่ระบบเพื่อนำทาง"
-                              >
-                                🔒 เข้าสู่ระบบเพื่อดูแผนที่
-                              </span>
-                            )
-                          )}
-                        </span>
-                      </p>
-                      <p><span className="text-stone-500 text-sm block">เหยื่อที่ใช้</span> {log.lure_used || 'ไม่ระบุ'}</p>
-                    </div>
+                    {log.fish_name?.startsWith('📍') ? (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-stone-300 mb-6">
+                        <p>
+                          <span className="text-stone-500 text-sm block">ชื่อหมายตกปลา</span>
+                          <span className="inline-flex items-center gap-2 flex-wrap font-bold text-white">
+                            <span>{log.location_name || 'ไม่ระบุ'}</span>
+                            {log.latitude && log.longitude && (
+                              currentUserId ? (
+                                <a 
+                                  href={`https://www.google.com/maps/search/?api=1&query=${log.latitude},${log.longitude}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="inline-flex items-center gap-1 text-[11px] bg-yellow-500/10 text-yellow-500 border border-yellow-500/30 hover:bg-yellow-500/20 px-2 py-0.5 rounded transition-all font-normal"
+                                  title="เปิดนำทางบน Google Maps"
+                                >
+                                  📍 นำทาง
+                                </a>
+                              ) : (
+                                <span 
+                                  className="inline-flex items-center gap-1 text-[10px] bg-stone-700/50 text-stone-400 border border-stone-600/30 px-2 py-0.5 rounded font-normal"
+                                  title="ต้องเข้าสู่ระบบเพื่อนำทาง"
+                                >
+                                  🔒 เข้าสู่ระบบเพื่อดูแผนที่
+                                </span>
+                              )
+                            )}
+                          </span>
+                        </p>
+                        <p><span className="text-stone-500 text-sm block">เหยื่อแนะนำ</span> <span className="font-bold text-white">{log.lure_used || 'ไม่ระบุ'}</span></p>
+                        {log.latitude && log.longitude && (
+                          <p className="md:col-span-2">
+                            <span className="text-stone-500 text-sm block font-mono">พิกัด GPS</span>
+                            <span className="text-xs font-mono text-stone-400">{log.latitude.toFixed(6)}, {log.longitude.toFixed(6)}</span>
+                          </p>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-2 gap-4 text-stone-300 mb-6">
+                        <p><span className="text-stone-500 text-sm block">น้ำหนัก</span> {log.weight ? `${log.weight} กก.` : '-'}</p>
+                        <p><span className="text-stone-500 text-sm block">ความยาว</span> {log.length ? `${log.length} ซม.` : '-'}</p>
+                        <p>
+                          <span className="text-stone-500 text-sm block">หมายตกปลา</span>
+                          <span className="inline-flex items-center gap-2 flex-wrap">
+                            <span>{log.location_name || 'ไม่ระบุ'}</span>
+                            {log.latitude && log.longitude && (
+                              currentUserId ? (
+                                <a 
+                                  href={`https://www.google.com/maps/search/?api=1&query=${log.latitude},${log.longitude}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="inline-flex items-center gap-1 text-[11px] bg-yellow-500/10 text-yellow-500 border border-yellow-500/30 hover:bg-yellow-500/20 px-2 py-0.5 rounded transition-all"
+                                  title="เปิดนำทางบน Google Maps"
+                                >
+                                  📍 นำทาง
+                                </a>
+                              ) : (
+                                <span 
+                                  className="inline-flex items-center gap-1 text-[10px] bg-stone-700/50 text-stone-400 border border-stone-600/30 px-2 py-0.5 rounded"
+                                  title="ต้องเข้าสู่ระบบเพื่อนำทาง"
+                                >
+                                  🔒 เข้าสู่ระบบเพื่อดูแผนที่
+                                </span>
+                              )
+                            )}
+                          </span>
+                        </p>
+                        <p><span className="text-stone-500 text-sm block">เหยื่อที่ใช้</span> {log.lure_used || 'ไม่ระบุ'}</p>
+                      </div>
+                    )}
                     <div className="flex items-center justify-between pt-3 border-t border-stone-700/50 flex-wrap gap-2">
                       <button 
                         onClick={() => handleToggleLike(log.id, hasLiked)}

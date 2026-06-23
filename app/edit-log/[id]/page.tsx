@@ -15,6 +15,7 @@ export default function EditLog() {
   const router = useRouter()
   const logId = params.id
 
+  const [postType, setPostType] = useState<'catch' | 'spot'>('catch')
   const [fishName, setFishName] = useState('')
   const [weight, setWeight] = useState('')
   const [length, setLength] = useState('')
@@ -70,7 +71,14 @@ export default function EditLog() {
       .single()
 
     if (data) {
-      setFishName(data.fish_name)
+      const isSpot = data.fish_name?.startsWith('📍 แนะนำหมาย:');
+      if (isSpot) {
+        setPostType('spot')
+        setFishName('')
+      } else {
+        setPostType('catch')
+        setFishName(data.fish_name)
+      }
       setWeight(data.weight?.toString() || '')
       setLength(data.length?.toString() || '')
       setLocation(data.location_name || '')
@@ -86,12 +94,19 @@ export default function EditLog() {
     e.preventDefault()
     setMessage('กำลังอัปเดตข้อมูล...')
 
+    const finalFishName = postType === 'spot' 
+      ? `📍 แนะนำหมาย: ${location.trim() || 'หมายตกปลา'}` 
+      : fishName;
+      
+    const finalWeight = postType === 'spot' ? null : (weight ? parseFloat(weight) : null);
+    const finalLength = postType === 'spot' ? null : (length ? parseFloat(length) : null);
+
     const { error } = await supabase
       .from('bite_logs')
       .update({ 
-        fish_name: fishName, 
-        weight: weight ? parseFloat(weight) : null, 
-        length: length ? parseFloat(length) : null, 
+        fish_name: finalFishName, 
+        weight: finalWeight, 
+        length: finalLength, 
         location_name: location, 
         lure_used: lure,
         latitude: latitude ? parseFloat(latitude) : null,
@@ -115,7 +130,9 @@ export default function EditLog() {
     <main className="flex min-h-screen flex-col items-center py-12 px-4 bg-stone-900 text-stone-200">
       <div className="w-full max-w-lg p-8 bg-stone-800 rounded-lg shadow-xl border border-stone-700">
         <div className="flex justify-between items-center mb-8 border-b border-stone-750 pb-4">
-          <h1 className="text-2xl font-bold text-yellow-500">แก้ไขผลงาน 📝</h1>
+          <h1 className="text-2xl font-bold text-yellow-500">
+            {postType === 'catch' ? 'แก้ไขผลงาน 📝' : 'แก้ไขหมายแนะนำ 🗺️'}
+          </h1>
           <Link href="/" className="text-stone-400 hover:text-white text-sm flex items-center gap-1 transition-colors">
             <span>⬅️</span> กลับหน้าหลัก
           </Link>
@@ -123,29 +140,50 @@ export default function EditLog() {
         
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block mb-1 text-sm text-stone-400">ชนิดปลา *</label>
-            <input type="text" required value={fishName} onChange={(e) => setFishName(e.target.value)}
-              className="w-full p-3 bg-stone-700 rounded text-white focus:ring-2 focus:ring-yellow-500" />
+            <label className="block mb-1 text-sm text-stone-400">ประเภทโพสต์ *</label>
+            <select value={postType} onChange={(e) => setPostType(e.target.value as 'catch' | 'spot')}
+              className="w-full p-3 bg-stone-700 rounded text-white focus:ring-2 focus:ring-yellow-500">
+              <option value="catch">📸 บันทึกผลงานการตกปลา (Catch Log)</option>
+              <option value="spot">🗺️ แนะนำหมายตกปลา / ปักหมุดหมายสวย (Spot Recommendation)</option>
+            </select>
           </div>
 
-          <div className="flex gap-4">
-            <div className="w-1/2">
-              <label className="block mb-1 text-sm text-stone-400">น้ำหนัก (กก.)</label>
-              <input type="number" step="0.01" value={weight} onChange={(e) => setWeight(e.target.value)}
-                className="w-full p-3 bg-stone-700 rounded text-white focus:ring-2 focus:ring-yellow-500" />
-            </div>
-            <div className="w-1/2">
-              <label className="block mb-1 text-sm text-stone-400">ความยาว (ซม.)</label>
-              <input type="number" step="0.1" value={length} onChange={(e) => setLength(e.target.value)}
-                className="w-full p-3 bg-stone-700 rounded text-white focus:ring-2 focus:ring-yellow-500" />
-            </div>
-          </div>
+          {postType === 'catch' && (
+            <>
+              <div>
+                <label className="block mb-1 text-sm text-stone-400">ชนิดปลา *</label>
+                <input type="text" required={postType === 'catch'} value={fishName} onChange={(e) => setFishName(e.target.value)}
+                  className="w-full p-3 bg-stone-700 rounded text-white focus:ring-2 focus:ring-yellow-500" />
+              </div>
 
-          <div>
-            <label className="block mb-1 text-sm text-stone-400">หมายตกปลา</label>
-            <input type="text" value={location} onChange={(e) => setLocation(e.target.value)}
-              className="w-full p-3 bg-stone-700 rounded text-white focus:ring-2 focus:ring-yellow-500" />
-          </div>
+              <div className="flex gap-4">
+                <div className="w-1/2">
+                  <label className="block mb-1 text-sm text-stone-400">น้ำหนัก (กก.)</label>
+                  <input type="number" step="0.01" value={weight} onChange={(e) => setWeight(e.target.value)}
+                    className="w-full p-3 bg-stone-700 rounded text-white focus:ring-2 focus:ring-yellow-500" />
+                </div>
+                <div className="w-1/2">
+                  <label className="block mb-1 text-sm text-stone-400">ความยาว (ซม.)</label>
+                  <input type="number" step="0.1" value={length} onChange={(e) => setLength(e.target.value)}
+                    className="w-full p-3 bg-stone-700 rounded text-white focus:ring-2 focus:ring-yellow-500" />
+                </div>
+              </div>
+
+              <div>
+                <label className="block mb-1 text-sm text-stone-400">หมายตกปลา</label>
+                <input type="text" value={location} onChange={(e) => setLocation(e.target.value)}
+                  className="w-full p-3 bg-stone-700 rounded text-white focus:ring-2 focus:ring-yellow-500" />
+              </div>
+            </>
+          )}
+
+          {postType === 'spot' && (
+            <div>
+              <label className="block mb-1 text-sm text-stone-400">ชื่อหมายตกปลา *</label>
+              <input type="text" required={postType === 'spot'} value={location} onChange={(e) => setLocation(e.target.value)}
+                className="w-full p-3 bg-stone-700 rounded text-white focus:ring-2 focus:ring-yellow-500" placeholder="เช่น อ่างเก็บน้ำบางพระ, หลังวัดเชิงเลน" />
+            </div>
+          )}
 
           <div className="p-4 bg-stone-900/30 rounded border border-stone-700 space-y-4">
             <div className="flex justify-between items-center">
@@ -180,13 +218,15 @@ export default function EditLog() {
           </div>
 
           <div>
-            <label className="block mb-1 text-sm text-stone-400">เหยื่อที่ใช้</label>
+            <label className="block mb-1 text-sm text-stone-400">
+              {postType === 'catch' ? 'เหยื่อที่ใช้' : 'เหยื่อแนะนำ (ถ้ามี)'}
+            </label>
             <input type="text" value={lure} onChange={(e) => setLure(e.target.value)}
-              className="w-full p-3 bg-stone-700 rounded text-white focus:ring-2 focus:ring-yellow-500" />
+              className="w-full p-3 bg-stone-700 rounded text-white focus:ring-2 focus:ring-yellow-500" placeholder={postType === 'catch' ? '' : 'เช่น ปลายาง, รำผสม, ขนมปัง'} />
           </div>
 
           <button type="submit" className="w-full py-3 mt-4 bg-yellow-600 hover:bg-yellow-500 text-stone-900 font-bold rounded transition-colors">
-            บันทึกการแก้ไข
+            {postType === 'catch' ? 'บันทึกการแก้ไขผลงาน' : 'บันทึกการแก้ไขหมายแนะนำ'}
           </button>
         </form>
 

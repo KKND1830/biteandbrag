@@ -61,14 +61,14 @@ export default function InteractiveMap({ logs }: InteractiveMapProps) {
             </div>
           ` : ''}
           <h4 class="text-sm font-extrabold text-yellow-500 mb-1 flex items-center gap-1">
-            🎣 ${log.fish_name || 'ไม่ระบุชื่อปลา'}
+            ${log.fish_name?.startsWith('📍') ? log.fish_name : `🎣 ${log.fish_name || 'ไม่ระบุชื่อปลา'}`}
           </h4>
           <div class="space-y-0.5 text-xs">
             <p class="text-stone-300">👤 <b>ผู้โพสต์:</b> ${log.profiles?.display_name || log.author_name || 'นักตกปลา'}</p>
             ${log.weight ? `<p class="text-stone-300">⚖️ <b>น้ำหนัก:</b> ${log.weight} กก.</p>` : ''}
             ${log.length ? `<p class="text-stone-300">📏 <b>ความยาว:</b> ${log.length} ซม.</p>` : ''}
-            ${log.lure_used ? `<p class="text-stone-300">🐛 <b>เหยื่อ:</b> ${log.lure_used}</p>` : ''}
-            ${log.location_name ? `<p class="text-stone-300">📍 <b>หมาย:</b> ${log.location_name}</p>` : ''}
+            ${log.lure_used ? `<p class="text-stone-300">🐛 <b>${log.fish_name?.startsWith('📍') ? 'เหยื่อแนะนำ' : 'เหยื่อ'}:</b> ${log.lure_used}</p>` : ''}
+            ${log.location_name ? `<p class="text-stone-300">📍 <b>${log.fish_name?.startsWith('📍') ? 'ชื่อหมาย' : 'หมาย'}:</b> ${log.location_name}</p>` : ''}
           </div>
           <p class="text-[9px] text-stone-500 mt-2 text-right">
             ${new Date(log.created_at).toLocaleDateString('th-TH')}
