@@ -6,6 +6,7 @@ import Link from 'next/link'
 import dynamic from 'next/dynamic'
 import { getUserLevelInfo } from '../../../utils/level'
 import ShareCardModal from '../../../components/ShareCardModal'
+import { AVATARS, getAvatarPath } from '../../../utils/avatar'
 
 const CardMap = dynamic(() => import('../../../components/CardMap'), {
   ssr: false,
@@ -27,6 +28,7 @@ export default function UserProfile() {
   const [isEditingName, setIsEditingName] = useState(false)
   const [newName, setNewName] = useState('')
   const [updateMessage, setUpdateMessage] = useState('')
+  const [showAvatarSelector, setShowAvatarSelector] = useState(false)
 
   // Feed interactions
   const [expandedComments, setExpandedComments] = useState<Record<string, boolean>>({})
@@ -77,7 +79,7 @@ export default function UserProfile() {
       // 3. Fetch comments
       const { data: commentsData, error: commentsError } = await supabase
         .from('comments')
-        .select('*, profiles(display_name)')
+        .select('*, profiles(display_name, username)')
         .order('created_at', { ascending: true })
 
       const comments = commentsData || []
@@ -181,6 +183,19 @@ export default function UserProfile() {
   const spotCount = spots.length
   const totalWeight = catches.reduce((sum, log) => sum + (log.weight || 0), 0)
 
+  // Avatar stats
+  const totalLikes = logs.reduce((sum, log) => sum + (log.likes?.length || 0), 0)
+  const maxWeight = catches.reduce((max, log) => (log.weight && log.weight > max) ? log.weight : max, 0)
+  const luresUsed = logs.map(log => log.lure_used?.trim()?.toLowerCase()).filter(Boolean)
+  const uniqueLures = new Set(luresUsed).size
+
+  const statsForAvatars = {
+    spotCount,
+    totalLikes,
+    maxWeight,
+    uniqueLures
+  }
+
   // Level info
   const lvlInfo = getUserLevelInfo(catchCount, profile?.total_points || 0)
 
@@ -248,8 +263,8 @@ export default function UserProfile() {
         <div className={`overflow-hidden bg-stone-800 rounded-lg shadow-xl p-6 transition-all duration-300 relative border ${lvlInfo.frameClass}`}>
           <div className="flex flex-col sm:flex-row gap-5 items-center sm:items-start">
             {/* Avatar placeholder with Level Frame colors */}
-            <div className="w-24 h-24 rounded-full bg-stone-950 flex items-center justify-center text-4xl border-4 shadow-md relative shrink-0" style={{ borderColor: lvlInfo.colorHex }}>
-              <span>👤</span>
+            <div className="w-24 h-24 rounded-full bg-stone-950 flex items-center justify-center border-4 shadow-md relative shrink-0 overflow-hidden" style={{ borderColor: lvlInfo.colorHex }}>
+              <img src={getAvatarPath(profile.username)} alt="Avatar" className="w-full h-full object-cover animate-fade-in" />
               <span className="absolute -bottom-2 -right-1 bg-stone-900 text-yellow-400 font-black px-2 py-0.5 rounded-full text-[10px] border border-stone-700">
                 LV.{lvlInfo.level}
               </span>
@@ -298,17 +313,81 @@ export default function UserProfile() {
                 </span>
               </div>
 
+              {isOwner && (
+                <div className="flex justify-center sm:justify-start pt-1">
+                  <button 
+                    onClick={() => setShowAvatarSelector(!showAvatarSelector)}
+                    className="text-yellow-500 hover:text-yellow-400 text-xs transition-colors flex items-center gap-1 cursor-pointer font-bold bg-yellow-500/10 border border-yellow-500/30 px-3 py-1.5 rounded-full shadow-sm"
+                  >
+                    🛡️ เปลี่ยนอวตาร์เครื่องยศ
+                  </button>
+                </div>
+              )}
+
               <p className="text-xs text-stone-400 italic">
                 {isOwner 
                   ? "เป็นเกียรติแก่นักตกปลา! นี่คือสมุดบันทึกและสถิติการตกปลาของคุณ"
                   : `สมุดบันทึกส่วนตัวของยอดฝีมือนักตกปลา ${profile.display_name || 'นักตกปลา'}`}
               </p>
               
-              {updateMessage && (
-                <p className="text-xs font-mono text-yellow-400 animate-pulse">{updateMessage}</p>
-              )}
             </div>
           </div>
+
+          {/* Avatar selector panel */}
+          {showAvatarSelector && isOwner && (
+            <div className="mt-6 pt-6 border-t border-stone-700/80 space-y-3">
+              <h3 className="text-sm font-bold text-yellow-500 flex justify-between items-center">
+                <span>🛡️ เลือกอวตาร์เครื่องยศนักตกปลา</span>
+                <button onClick={() => setShowAvatarSelector(false)} className="text-stone-400 hover:text-white text-xs cursor-pointer">❌ ปิด</button>
+              </h3>
+              <p className="text-[11px] text-stone-400">อวตาร์จะถูกปลดล็อกโดยอัตโนมัติตามเควสท้าทายที่คุณผ่านเกณฑ์</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {AVATARS.map(avatar => {
+                  const isUnlocked = avatar.checkUnlocked(statsForAvatars)
+                  const isSelected = profile.username === avatar.id || (!profile.username && avatar.id === 'basic_rod')
+                  return (
+                    <button 
+                      key={avatar.id} 
+                      type="button"
+                      disabled={!isUnlocked}
+                      onClick={async () => {
+                        if (!isUnlocked) return
+                        const { error } = await supabase.from('profiles').update({ username: avatar.id }).eq('id', currentUserId)
+                        if (!error) {
+                          setProfile((prev: any) => ({ ...prev, username: avatar.id }))
+                        } else {
+                          alert('เลือกอวตาร์ไม่สำเร็จ: ' + error.message)
+                        }
+                      }}
+                      className={`flex items-center gap-3 p-3 rounded-lg border text-left transition-all ${
+                        isUnlocked 
+                          ? 'cursor-pointer hover:bg-stone-750/50 bg-stone-850' 
+                          : 'opacity-40 cursor-not-allowed bg-stone-900 border-stone-800'
+                      } ${
+                        isSelected 
+                          ? 'border-yellow-500 bg-yellow-500/5 ring-1 ring-yellow-500/25' 
+                          : 'border-stone-700'
+                      }`}
+                    >
+                      <div className="w-12 h-12 rounded-full overflow-hidden bg-stone-950 border border-stone-700 shrink-0">
+                        <img src={avatar.imagePath} alt={avatar.name} className="w-full h-full object-cover" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <h4 className="text-xs font-bold text-white truncate flex items-center gap-1.5">
+                          {avatar.name}
+                          {isSelected && <span className="text-[9px] bg-yellow-600 text-stone-950 px-1.5 py-0.5 rounded leading-none font-black">ใช้งาน</span>}
+                        </h4>
+                        <p className="text-[10px] text-stone-400 truncate mt-0.5">{avatar.description}</p>
+                        <p className={`text-[9px] mt-1 ${isUnlocked ? 'text-green-400 font-semibold' : 'text-stone-500'}`}>
+                          {isUnlocked ? '✅ ปลดล็อกแล้ว' : `🔒 เควส: ${avatar.requirement}`}
+                        </p>
+                      </div>
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Stats Grid */}
@@ -422,7 +501,10 @@ export default function UserProfile() {
                         <h2 className="text-2xl font-bold text-white mb-1">{log.fish_name}</h2>
                         <p className="text-sm font-medium text-yellow-500 flex flex-wrap items-center gap-1.5">
                           <span>👤 ผู้โพสต์:</span>
-                          <span className="font-bold text-white bg-stone-700/50 px-2 py-0.5 rounded text-xs">{profile.display_name || 'นักตกปลา'}</span>
+                          <span className="inline-flex items-center gap-1.5 font-bold text-white bg-stone-700/50 px-2 py-0.5 rounded text-xs">
+                            <img src={getAvatarPath(profile.username)} alt="avatar" className="w-4 h-4 rounded-full object-cover bg-stone-950" />
+                            {profile.display_name || 'นักตกปลา'}
+                          </span>
                           <span className={`inline-flex items-center gap-0.5 px-2 py-0.5 rounded text-[10px] font-black border leading-none ${lvlInfo.colorClass}`}>
                             {lvlInfo.title}
                           </span>
@@ -549,11 +631,13 @@ export default function UserProfile() {
                                 <div className="flex-1 min-w-0">
                                   <div className="flex items-baseline gap-2 mb-1 flex-wrap">
                                     {comment.user_id ? (
-                                      <Link href={`/profile/${comment.user_id}`} className="text-xs font-bold text-yellow-400 hover:underline">
+                                      <Link href={`/profile/${comment.user_id}`} className="inline-flex items-center gap-1.5 text-xs font-bold text-yellow-400 hover:underline">
+                                        <img src={getAvatarPath(comment.profiles?.username)} alt="avatar" className="w-3.5 h-3.5 rounded-full object-cover bg-stone-950" />
                                         {comment.profiles?.display_name || 'นักตกปลา'}
                                       </Link>
                                     ) : (
-                                      <span className="text-xs font-bold text-yellow-400">
+                                      <span className="inline-flex items-center gap-1.5 text-xs font-bold text-yellow-400">
+                                        <img src={getAvatarPath(null)} alt="avatar" className="w-3.5 h-3.5 rounded-full object-cover bg-stone-950" />
                                         {comment.profiles?.display_name || 'นักตกปลา'}
                                       </span>
                                     )}

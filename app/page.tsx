@@ -6,6 +6,7 @@ import dynamic from 'next/dynamic'
 
 import { getUserLevelInfo } from '../utils/level'
 import ShareCardModal from '../components/ShareCardModal'
+import { getAvatarPath } from '../utils/avatar'
 
 const CardMap = dynamic(() => import('../components/CardMap'), {
   ssr: false,
@@ -41,13 +42,13 @@ export default function Home() {
   const fetchLogs = async () => {
     const { data: logsData } = await supabase
       .from('bite_logs')
-      .select('*, profiles(display_name, rank, total_points), likes(user_id)')
+      .select('*, profiles(display_name, rank, total_points, username), likes(user_id)')
       .order('created_at', { ascending: false })
 
     if (logsData) {
       const { data: commentsData, error: commentsError } = await supabase
         .from('comments')
-        .select('*, profiles(display_name)')
+        .select('*, profiles(display_name, username)')
         .order('created_at', { ascending: true })
 
       if (commentsError) {
@@ -560,11 +561,13 @@ export default function Home() {
                          <p className="text-sm font-medium text-yellow-500 flex flex-wrap items-center gap-1.5">
                           <span>👤 ผู้โพสต์:</span>
                           {log.user_id ? (
-                            <Link href={`/profile/${log.user_id}`} className="font-bold text-white bg-stone-700/50 hover:bg-stone-650 px-2 py-0.5 rounded text-xs transition-all hover:text-yellow-400">
+                            <Link href={`/profile/${log.user_id}`} className="inline-flex items-center gap-1.5 font-bold text-white bg-stone-700/50 hover:bg-stone-655 px-2 py-0.5 rounded text-xs transition-all hover:text-yellow-400">
+                              <img src={getAvatarPath(log.profiles?.username)} alt="avatar" className="w-4 h-4 rounded-full object-cover bg-stone-950" />
                               {log.profiles?.display_name || log.author_name || 'นักตกปลาลึกลับ'}
                             </Link>
                           ) : (
-                            <span className="font-bold text-white bg-stone-700/50 px-2 py-0.5 rounded text-xs">
+                            <span className="inline-flex items-center gap-1.5 font-bold text-white bg-stone-700/50 px-2 py-0.5 rounded text-xs">
+                              <img src={getAvatarPath(null)} alt="avatar" className="w-4 h-4 rounded-full object-cover bg-stone-950" />
                               {log.profiles?.display_name || log.author_name || 'นักตกปลาลึกลับ'}
                             </span>
                           )}
@@ -705,11 +708,13 @@ export default function Home() {
                                 <div className="flex-1 min-w-0">
                                   <div className="flex items-baseline gap-2 mb-1 flex-wrap">
                                     {comment.user_id ? (
-                                      <Link href={`/profile/${comment.user_id}`} className="text-xs font-bold text-yellow-400 hover:underline">
+                                      <Link href={`/profile/${comment.user_id}`} className="inline-flex items-center gap-1.5 text-xs font-bold text-yellow-400 hover:underline">
+                                        <img src={getAvatarPath(comment.profiles?.username)} alt="avatar" className="w-3.5 h-3.5 rounded-full object-cover bg-stone-950" />
                                         {comment.profiles?.display_name || 'นักตกปลา'}
                                       </Link>
                                     ) : (
-                                      <span className="text-xs font-bold text-yellow-400">
+                                      <span className="inline-flex items-center gap-1.5 text-xs font-bold text-yellow-400">
+                                        <img src={getAvatarPath(null)} alt="avatar" className="w-3.5 h-3.5 rounded-full object-cover bg-stone-950" />
                                         {comment.profiles?.display_name || 'นักตกปลา'}
                                       </span>
                                     )}
