@@ -109,6 +109,9 @@ export default function InboxModal({
   }
 
   const handleNotificationClick = async (notif: any) => {
+    // สำหรับการชวนแข่ง เราไม่อยากให้กดที่ตัวการ์ดแล้วปิดหน้าต่างทันที หากยังมีปุ่มกดอยู่
+    if (notif.type === 'tournament_invite') return
+
     if (!notif.is_read) {
       await supabase
         .from('notifications')
@@ -117,6 +120,59 @@ export default function InboxModal({
       if (onRefreshCounts) onRefreshCounts()
     }
     onClose()
+  }
+
+  const handleAcceptInvite = async (notif: any) => {
+    // 1. อัปเดตสถานะของแจ้งเตือนชวนแข่งว่ายอมรับแล้ว
+    const { error: updateError } = await supabase
+      .from('notifications')
+      .update({ type: 'tournament_invite_accepted', is_read: true })
+      .eq('id', notif.id)
+
+    if (updateError) {
+      console.error('Error accepting invite:', updateError.message)
+      return
+    }
+
+    // 2. ดึงชื่อผู้ใช้ของเรามาส่งแจ้งเตือนตอบกลับ
+    const { data: profData } = await supabase
+      .from('profiles')
+      .select('display_name')
+      .eq('id', currentUserId)
+      .single()
+
+    const myName = profData?.display_name || 'นักตกปลา'
+
+    // 3. ส่งคำตอบรับกลับไปยังผู้ชวน ( sender_id เดิม )
+    await supabase.from('notifications').insert([
+      {
+        user_id: notif.sender_id,
+        sender_id: currentUserId,
+        type: 'system',
+        content: `${myName} ได้ตอบรับเข้าร่วมกิจกรรมการแข่งขันตกปลาของคุณแล้ว`
+      }
+    ])
+
+    // 4. รีเฟรชลิสต์แจ้งเตือนและไอคอนหน้าเว็บ
+    await fetchNotifications()
+    if (onRefreshCounts) onRefreshCounts()
+  }
+
+  const handleDeclineInvite = async (notif: any) => {
+    // อัปเดตแจ้งเตือนว่าปฏิเสธแล้ว
+    const { error: updateError } = await supabase
+      .from('notifications')
+      .update({ type: 'tournament_invite_declined', is_read: true })
+      .eq('id', notif.id)
+
+    if (updateError) {
+      console.error('Error declining invite:', updateError.message)
+      return
+    }
+
+    // รีเฟรชลิสต์แจ้งเตือน
+    await fetchNotifications()
+    if (onRefreshCounts) onRefreshCounts()
   }
 
   // Conversations & DMs API Calls
@@ -350,6 +406,15 @@ export default function InboxModal({
                   } else if (notif.type === 'avatar_unlock') {
                     messageText = `ยินดีด้วย! คุณปลดล็อกอวตาร์ใหม่: ${notif.content || ''}`
                     icon = '🏆'
+                  } else if (notif.type === 'tournament_invite') {
+                    messageText = 'ชวนคุณเข้าร่วมกิจกรรมแข่งขันตกปลา'
+                    icon = '🏆'
+                  } else if (notif.type === 'tournament_invite_accepted') {
+                    messageText = 'ชวนคุณเข้าร่วมกิจกรรมแข่งขันตกปลา (คุณตอบรับเข้าร่วมแล้ว ✅)'
+                    icon = '🏆'
+                  } else if (notif.type === 'tournament_invite_declined') {
+                    messageText = 'ชวนคุณเข้าร่วมกิจกรรมแข่งขันตกปลา (คุณปฏิเสธแล้ว ❌)'
+                    icon = '🏆'
                   } else {
                     messageText = notif.content || ''
                   }
@@ -381,6 +446,24 @@ export default function InboxModal({
                           </span>
                           {messageText}
                         </p>
+                        
+                        {notif.type === 'tournament_invite' && (
+                          <div className="flex gap-2 mt-2" onClick={(e) => e.stopPropagation()}>
+                            <button
+                              onClick={() => handleAcceptInvite(notif)}
+                              className="bg-emerald-600 hover:bg-emerald-500 text-stone-950 text-[10px] font-black py-1 px-2.5 rounded transition-all cursor-pointer shadow-sm hover:scale-102 flex items-center gap-1"
+                            >
+                              ✅ เข้าร่วม
+                            </button>
+                            <button
+                              onClick={() => handleDeclineInvite(notif)}
+                              className="bg-stone-800 hover:bg-stone-750 text-red-500 text-[10px] font-bold py-1 px-2.5 rounded transition-all cursor-pointer shadow-sm hover:scale-102 border border-stone-700"
+                            >
+                              ❌ ปฏิเสธ
+                            </button>
+                          </div>
+                        )}
+
                         <span className="text-[10px] text-stone-500 block mt-1">
                           {new Date(notif.created_at).toLocaleString('th-TH')}
                         </span>

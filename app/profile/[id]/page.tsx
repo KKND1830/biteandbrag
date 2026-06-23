@@ -32,6 +32,7 @@ export default function UserProfile() {
   const [newName, setNewName] = useState('')
   const [updateMessage, setUpdateMessage] = useState('')
   const [showAvatarSelector, setShowAvatarSelector] = useState(false)
+  const [inviteSentMessage, setInviteSentMessage] = useState('')
 
   // Feed interactions
   const [expandedComments, setExpandedComments] = useState<Record<string, boolean>>({})
@@ -183,6 +184,28 @@ export default function UserProfile() {
     }
     await fetchProfileData()
     await fetchUnreadCounts()
+  }
+
+  const handleSendTournamentInvite = async () => {
+    if (!currentUserId || !profileId) return
+
+    const { error } = await supabase.from('notifications').insert([
+      {
+        user_id: profileId,
+        sender_id: currentUserId,
+        type: 'tournament_invite',
+        content: 'ชวนเข้าร่วมกิจกรรมแข่งขันตกปลา'
+      }
+    ])
+
+    if (error) {
+      alert('ไม่สามารถส่งคำชวนได้: ' + error.message)
+    } else {
+      setInviteSentMessage('✅ ส่งคำชวนเข้าร่วมการแข่งขันสำเร็จแล้ว!')
+      setTimeout(() => {
+        setInviteSentMessage('')
+      }, 3000)
+    }
   }
 
   const handleAddComment = async (logId: string) => {
@@ -433,17 +456,30 @@ export default function UserProfile() {
               )}
 
               {!isOwner && currentUserId && (
-                <div className="flex justify-center sm:justify-start pt-1">
-                  <button 
-                    onClick={() => {
-                      setInboxInitialTab('chat')
-                      setInboxTargetUserId(profileId)
-                      setIsInboxOpen(true)
-                    }}
-                    className="text-yellow-500 hover:text-yellow-400 text-xs transition-colors flex items-center gap-1 cursor-pointer font-bold bg-yellow-500/10 border border-yellow-500/30 px-3.5 py-1.5 rounded-full shadow-sm hover:bg-yellow-500/20"
-                  >
-                    💬 ส่งข้อความส่วนตัว (Chat)
-                  </button>
+                <div className="space-y-2">
+                  <div className="flex flex-wrap justify-center sm:justify-start gap-2 pt-1">
+                    <button 
+                      onClick={() => {
+                        setInboxInitialTab('chat')
+                        setInboxTargetUserId(profileId)
+                        setIsInboxOpen(true)
+                      }}
+                      className="text-yellow-500 hover:text-yellow-400 text-xs transition-colors flex items-center gap-1 cursor-pointer font-bold bg-yellow-500/10 border border-yellow-500/30 px-3.5 py-1.5 rounded-full shadow-sm hover:bg-yellow-500/20"
+                    >
+                      💬 ส่งข้อความส่วนตัว (Chat)
+                    </button>
+                    <button 
+                      onClick={handleSendTournamentInvite}
+                      className="text-yellow-500 hover:text-yellow-400 text-xs transition-colors flex items-center gap-1 cursor-pointer font-bold bg-yellow-500/10 border border-yellow-500/30 px-3.5 py-1.5 rounded-full shadow-sm hover:bg-yellow-500/20"
+                    >
+                      🏆 ชวนแข่งขัน
+                    </button>
+                  </div>
+                  {inviteSentMessage && (
+                    <p className="text-xs text-yellow-500 font-bold animate-pulse text-center sm:text-left">
+                      {inviteSentMessage}
+                    </p>
+                  )}
                 </div>
               )}
 
