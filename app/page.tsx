@@ -28,6 +28,7 @@ export default function Home() {
   const [viewMode, setViewMode] = useState<'all' | 'mine'>('all')
   
   const [myDisplayName, setMyDisplayName] = useState('')
+  const [myAvatarId, setMyAvatarId] = useState<string | null>(null)
   const [isEditingProfile, setIsEditingProfile] = useState(false)
   const [newProfileName, setNewProfileName] = useState('')
   const [searchQuery, setSearchQuery] = useState('')
@@ -75,7 +76,7 @@ export default function Home() {
       setCurrentUserId(user.id)
       setCurrentUserEmail(user.email || null)
       
-      const { data: profData } = await supabase.from('profiles').select('display_name').eq('id', user.id).single()
+      const { data: profData } = await supabase.from('profiles').select('display_name, username').eq('id', user.id).single()
       
       if (profData?.display_name) {
         setMyDisplayName(profData.display_name)
@@ -84,6 +85,10 @@ export default function Home() {
         const defaultName = user.email ? user.email.split('@')[0] : 'นักตกปลา'
         setMyDisplayName(defaultName)
         setNewProfileName(defaultName)
+      }
+
+      if (profData?.username) {
+        setMyAvatarId(profData.username)
       }
     }
 
@@ -276,16 +281,27 @@ export default function Home() {
           
           <div className="flex items-center gap-3">
             {currentUserEmail ? (
-              <div className="flex items-center gap-3">
-                <span className="hidden md:inline text-xs text-stone-400">
-                  สวัสดี, <Link href={`/profile/${currentUserId}`} className="text-yellow-400 hover:underline font-bold">{myDisplayName}</Link> 👑
-                </span>
+              <div className="flex items-center gap-3.5">
+                <Link 
+                  href={`/profile/${currentUserId}`} 
+                  className="flex items-center gap-2 group hover:text-white transition-colors cursor-pointer"
+                  title="ดูโปรไฟล์ของคุณ"
+                >
+                  <img 
+                    src={getAvatarPath(myAvatarId)} 
+                    alt="my-avatar" 
+                    className="w-7 h-7 rounded-full object-cover bg-stone-950 border border-yellow-500/35 group-hover:border-yellow-500/75 transition-all shadow-md" 
+                  />
+                  <span className="hidden sm:inline text-xs text-stone-400 group-hover:text-stone-300 transition-colors">
+                    สวัสดี, <span className="text-yellow-400 font-bold group-hover:text-yellow-350">{myDisplayName}</span> 👑
+                  </span>
+                </Link>
                 <Link href="/add-log" className="bg-yellow-600 hover:bg-yellow-500 text-stone-900 text-xs font-bold py-2 px-3 rounded transition-all shadow-md">
                   + เพิ่มผลงาน
                 </Link>
                 <button 
                   onClick={handleLogout}
-                  className="bg-stone-850 hover:bg-stone-800 border border-stone-700 text-stone-300 text-xs font-bold py-2 px-3 rounded transition-all hover:text-white"
+                  className="bg-stone-850 hover:bg-stone-800 border border-stone-700 text-stone-300 text-xs font-bold py-2 px-3 rounded transition-all hover:text-white cursor-pointer"
                 >
                   ออกจากระบบ 🚪
                 </button>
@@ -564,12 +580,12 @@ export default function Home() {
                           <span>👤 ผู้โพสต์:</span>
                           {log.user_id ? (
                             <Link href={`/profile/${log.user_id}`} className="inline-flex items-center gap-1.5 font-bold text-white bg-stone-700/50 hover:bg-stone-655 px-2 py-0.5 rounded text-xs transition-all hover:text-yellow-400">
-                              <img src={getAvatarPath(log.profiles?.username)} alt="avatar" className="w-4 h-4 rounded-full object-cover bg-stone-950" />
+                              <img src={getAvatarPath(log.profiles?.username)} alt="avatar" className="w-6 h-6 rounded-full object-cover bg-stone-950 border border-stone-700/40" />
                               {log.profiles?.display_name || log.author_name || 'นักตกปลาลึกลับ'}
                             </Link>
                           ) : (
                             <span className="inline-flex items-center gap-1.5 font-bold text-white bg-stone-700/50 px-2 py-0.5 rounded text-xs">
-                              <img src={getAvatarPath(null)} alt="avatar" className="w-4 h-4 rounded-full object-cover bg-stone-950" />
+                              <img src={getAvatarPath(null)} alt="avatar" className="w-6 h-6 rounded-full object-cover bg-stone-950 border border-stone-700/40" />
                               {log.profiles?.display_name || log.author_name || 'นักตกปลาลึกลับ'}
                             </span>
                           )}
@@ -646,7 +662,7 @@ export default function Home() {
                               ) : (
                                 <span 
                                   className="inline-flex items-center gap-1 text-[10px] bg-stone-700/50 text-stone-400 border border-stone-600/30 px-2 py-0.5 rounded"
-                                  title="ต้องเข้าสู่ระบบเพื่อนำทาง"
+                                  title="ต้องเข้าสู่ระบบเพื่อดูแผนที่"
                                 >
                                   🔒 เข้าสู่ระบบเพื่อดูแผนที่
                                 </span>
@@ -711,12 +727,12 @@ export default function Home() {
                                   <div className="flex items-baseline gap-2 mb-1 flex-wrap">
                                     {comment.user_id ? (
                                       <Link href={`/profile/${comment.user_id}`} className="inline-flex items-center gap-1.5 text-xs font-bold text-yellow-400 hover:underline">
-                                        <img src={getAvatarPath(comment.profiles?.username)} alt="avatar" className="w-3.5 h-3.5 rounded-full object-cover bg-stone-950" />
+                                        <img src={getAvatarPath(comment.profiles?.username)} alt="avatar" className="w-5 h-5 rounded-full object-cover bg-stone-950 border border-stone-700/30" />
                                         {comment.profiles?.display_name || 'นักตกปลา'}
                                       </Link>
                                     ) : (
                                       <span className="inline-flex items-center gap-1.5 text-xs font-bold text-yellow-400">
-                                        <img src={getAvatarPath(null)} alt="avatar" className="w-3.5 h-3.5 rounded-full object-cover bg-stone-950" />
+                                        <img src={getAvatarPath(null)} alt="avatar" className="w-5 h-5 rounded-full object-cover bg-stone-950 border border-stone-700/30" />
                                         {comment.profiles?.display_name || 'นักตกปลา'}
                                       </span>
                                     )}

@@ -504,7 +504,7 @@ export default function UserProfile() {
                         <p className="text-sm font-medium text-yellow-500 flex flex-wrap items-center gap-1.5">
                           <span>👤 ผู้โพสต์:</span>
                           <span className="inline-flex items-center gap-1.5 font-bold text-white bg-stone-700/50 px-2 py-0.5 rounded text-xs">
-                            <img src={getAvatarPath(profile.username)} alt="avatar" className="w-4 h-4 rounded-full object-cover bg-stone-950" />
+                            <img src={getAvatarPath(profile.username)} alt="avatar" className="w-6 h-6 rounded-full object-cover bg-stone-950 border border-stone-700/40" />
                             {profile.display_name || 'นักตกปลา'}
                           </span>
                           <span className={`inline-flex items-center gap-0.5 px-2 py-0.5 rounded text-[10px] font-black border leading-none ${lvlInfo.colorClass}`}>
@@ -634,12 +634,12 @@ export default function UserProfile() {
                                   <div className="flex items-baseline gap-2 mb-1 flex-wrap">
                                     {comment.user_id ? (
                                       <Link href={`/profile/${comment.user_id}`} className="inline-flex items-center gap-1.5 text-xs font-bold text-yellow-400 hover:underline">
-                                        <img src={getAvatarPath(comment.profiles?.username)} alt="avatar" className="w-3.5 h-3.5 rounded-full object-cover bg-stone-950" />
+                                        <img src={getAvatarPath(comment.profiles?.username)} alt="avatar" className="w-5 h-5 rounded-full object-cover bg-stone-950 border border-stone-700/30" />
                                         {comment.profiles?.display_name || 'นักตกปลา'}
                                       </Link>
                                     ) : (
                                       <span className="inline-flex items-center gap-1.5 text-xs font-bold text-yellow-400">
-                                        <img src={getAvatarPath(null)} alt="avatar" className="w-3.5 h-3.5 rounded-full object-cover bg-stone-950" />
+                                        <img src={getAvatarPath(null)} alt="avatar" className="w-5 h-5 rounded-full object-cover bg-stone-950 border border-stone-700/30" />
                                         {comment.profiles?.display_name || 'นักตกปลา'}
                                       </span>
                                     )}
