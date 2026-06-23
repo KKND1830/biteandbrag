@@ -146,12 +146,31 @@ export default function AddLog() {
         
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block mb-1 text-sm text-stone-400">ประเภทโพสต์ *</label>
-            <select value={postType} onChange={(e) => setPostType(e.target.value as 'catch' | 'spot')}
-              className="w-full p-3 bg-stone-700 rounded text-white focus:ring-2 focus:ring-yellow-500">
-              <option value="catch">📸 บันทึกผลงานการตกปลา (Catch Log)</option>
-              <option value="spot">🗺️ แนะนำหมายตกปลา / ปักหมุดหมายสวย (Spot Recommendation)</option>
-            </select>
+            <label className="block mb-2 text-sm text-stone-400">ประเภทโพสต์ *</label>
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={() => setPostType('catch')}
+                className={`py-3 px-4 rounded font-bold text-sm transition-all flex items-center justify-center gap-2 cursor-pointer ${
+                  postType === 'catch'
+                    ? 'bg-yellow-600 text-stone-900 shadow-md ring-2 ring-yellow-500/25'
+                    : 'bg-stone-700 text-stone-300 hover:bg-stone-650 hover:text-white'
+                }`}
+              >
+                📸 บันทึกผลงาน
+              </button>
+              <button
+                type="button"
+                onClick={() => setPostType('spot')}
+                className={`py-3 px-4 rounded font-bold text-sm transition-all flex items-center justify-center gap-2 cursor-pointer ${
+                  postType === 'spot'
+                    ? 'bg-yellow-600 text-stone-900 shadow-md ring-2 ring-yellow-500/25'
+                    : 'bg-stone-700 text-stone-300 hover:bg-stone-650 hover:text-white'
+                }`}
+              >
+                🗺️ แนะนำหมายสวย
+              </button>
+            </div>
           </div>
 
           {postType === 'catch' && (
