@@ -4,6 +4,7 @@ import { supabase } from '../../../utils/supabase'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import dynamic from 'next/dynamic'
+import { parseImageUrls } from '../../../utils/image'
 
 const MapPicker = dynamic(() => import('../../../components/MapPicker'), {
   ssr: false,
@@ -25,6 +26,8 @@ export default function EditLog() {
   const [loading, setLoading] = useState(true)
   const [latitude, setLatitude] = useState('')
   const [longitude, setLongitude] = useState('')
+  const [existingImages, setExistingImages] = useState<string[]>([])
+  const [newImageFiles, setNewImageFiles] = useState<File[]>([])
 
   const handleGetCurrentLocation = () => {
     if (!navigator.geolocation) {
@@ -85,6 +88,7 @@ export default function EditLog() {
       setLure(data.lure_used || '')
       setLatitude(data.latitude?.toString() || '')
       setLongitude(data.longitude?.toString() || '')
+      setExistingImages(parseImageUrls(data.image_url))
     }
     setLoading(false)
   }
@@ -101,6 +105,42 @@ export default function EditLog() {
     const finalWeight = postType === 'spot' ? null : (weight ? parseFloat(weight) : null);
     const finalLength = postType === 'spot' ? null : (length ? parseFloat(length) : null);
 
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) {
+      setMessage('❌ กรุณาเข้าสู่ระบบก่อนบันทึกข้อมูลครับ')
+      return
+    }
+
+    let finalImageUrl = null
+    const uploadedUrls: string[] = []
+
+    if (newImageFiles.length > 0) {
+      for (const file of newImageFiles) {
+        const fileExt = file.name.split('.').pop()
+        const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`
+        const filePath = `${user.id}/${fileName}`
+
+        const { error: uploadError } = await supabase.storage
+          .from('bite-images')
+          .upload(filePath, file)
+
+        if (uploadError) {
+          setMessage('❌ อัปโหลดรูปภาพใหม่ไม่สำเร็จ: ' + uploadError.message)
+          return
+        }
+
+        const { data } = supabase.storage.from('bite-images').getPublicUrl(filePath)
+        uploadedUrls.push(data.publicUrl)
+      }
+    }
+
+    const combinedImages = [...existingImages, ...uploadedUrls]
+    if (combinedImages.length === 1) {
+      finalImageUrl = combinedImages[0]
+    } else if (combinedImages.length > 1) {
+      finalImageUrl = JSON.stringify(combinedImages)
+    }
+
     const { error } = await supabase
       .from('bite_logs')
       .update({ 
@@ -109,6 +149,7 @@ export default function EditLog() {
         length: finalLength, 
         location_name: location, 
         lure_used: lure,
+        image_url: finalImageUrl,
         latitude: latitude ? parseFloat(latitude) : null,
         longitude: longitude ? parseFloat(longitude) : null
       })
@@ -242,6 +283,71 @@ export default function EditLog() {
             </label>
             <input type="text" value={lure} onChange={(e) => setLure(e.target.value)}
               className="w-full p-3 bg-stone-700 rounded text-white focus:ring-2 focus:ring-yellow-500" placeholder={postType === 'catch' ? '' : 'เช่น ปลายาง, รำผสม, ขนมปัง'} />
+          </div>
+
+          {/* ส่วนจัดการรูปภาพผลงาน/หมายตกปลา */}
+          <div className="space-y-3 p-4 bg-stone-900/30 rounded border border-stone-700">
+            <label className="block text-sm font-semibold text-yellow-500">📸 จัดการรูปภาพ (สูงสุด 5 รูป)</label>
+            
+            {/* รูปภาพที่มีอยู่เดิม */}
+            {existingImages.length > 0 && (
+              <div>
+                <p className="text-xs text-stone-400 mb-2">รูปภาพในระบบปัจจุบัน:</p>
+                <div className="flex flex-wrap gap-2">
+                  {existingImages.map((url, index) => (
+                    <div key={index} className="relative w-16 h-16 rounded overflow-hidden border border-stone-600 bg-stone-950">
+                      <img src={url} alt="existing" className="w-full h-full object-cover" />
+                      <button 
+                        type="button" 
+                        onClick={() => setExistingImages(prev => prev.filter((_, idx) => idx !== index))}
+                        className="absolute top-0.5 right-0.5 bg-red-600 text-white rounded-full w-4 h-4 flex items-center justify-center text-[10px] font-black cursor-pointer hover:bg-red-500 shadow-md"
+                        title="ลบรูปภาพนี้"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* อัปโหลดรูปภาพเพิ่ม */}
+            <div>
+              <p className="text-xs text-stone-400 mb-1.5">อัปโหลดรูปภาพเพิ่มเติม:</p>
+              <input 
+                type="file" 
+                accept="image/*" 
+                multiple 
+                onChange={(e) => {
+                  const files = Array.from(e.target.files || [])
+                  if (existingImages.length + newImageFiles.length + files.length > 5) {
+                    alert('รวมรูปภาพเดิมและรูปภาพใหม่แล้วสามารถมีได้สูงสุด 5 รูปครับ')
+                    e.target.value = ''
+                    return
+                  }
+                  setNewImageFiles(prev => [...prev, ...files])
+                }}
+                className="w-full p-2 bg-stone-700 rounded text-stone-300 text-sm file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-yellow-600 file:text-stone-900 hover:file:bg-yellow-500" 
+              />
+              
+              {newImageFiles.length > 0 && (
+                <div className="mt-2 text-xs text-stone-400 flex flex-wrap gap-1.5">
+                  <span>เลือกเพิ่ม {newImageFiles.length} รูป:</span>
+                  {newImageFiles.map((file, idx) => (
+                    <span key={idx} className="bg-stone-900 px-2 py-0.5 rounded text-stone-300 border border-stone-850 flex items-center gap-1">
+                      {file.name}
+                      <button 
+                        type="button" 
+                        onClick={() => setNewImageFiles(prev => prev.filter((_, i) => i !== idx))}
+                        className="text-red-500 font-bold hover:text-red-400"
+                      >
+                        ✕
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
 
           <button type="submit" className="w-full py-3 mt-4 bg-yellow-600 hover:bg-yellow-500 text-stone-900 font-bold rounded transition-colors">

@@ -7,6 +7,8 @@ import dynamic from 'next/dynamic'
 import { getUserLevelInfo } from '../../../utils/level'
 import ShareCardModal from '../../../components/ShareCardModal'
 import { AVATARS, getAvatarPath } from '../../../utils/avatar'
+import { parseImageUrls } from '../../../utils/image'
+import ImageCarousel from '../../../components/ImageCarousel'
 
 const CardMap = dynamic(() => import('../../../components/CardMap'), {
   ssr: false,
@@ -467,23 +469,23 @@ export default function UserProfile() {
               return (
                 <div key={log.id} className={`overflow-hidden bg-stone-800 rounded-lg shadow-xl transition-all duration-300 ${lvlInfo.frameClass}`}>
                   {/* Photo & Mini Map Map */}
-                  {currentUserId && (log.image_url || (log.latitude && log.longitude)) ? (
+                  {currentUserId && (parseImageUrls(log.image_url).length > 0 || (log.latitude && log.longitude)) ? (
                     <div className="flex flex-col sm:flex-row h-[360px] sm:h-64 bg-stone-950 overflow-hidden relative border-b border-stone-700">
-                      {log.image_url && (
+                      {parseImageUrls(log.image_url).length > 0 && (
                         <div className={`${log.latitude && log.longitude ? 'w-full sm:w-1/2 h-1/2 sm:h-full' : 'w-full h-full'} relative`}>
-                          <img src={log.image_url} alt={log.fish_name} className="w-full h-full object-cover" />
+                          <ImageCarousel imageUrls={parseImageUrls(log.image_url)} alt={log.fish_name} />
                         </div>
                       )}
                       {log.latitude && log.longitude && (
-                        <div className={`${log.image_url ? 'w-full sm:w-1/2 h-1/2 sm:h-full border-t sm:border-t-0 sm:border-l border-stone-700' : 'w-full h-full'} relative`}>
+                        <div className={`${parseImageUrls(log.image_url).length > 0 ? 'w-full sm:w-1/2 h-1/2 sm:h-full border-t sm:border-t-0 sm:border-l border-stone-700' : 'w-full h-full'} relative`}>
                           <CardMap lat={log.latitude} lng={log.longitude} />
                         </div>
                       )}
                     </div>
                   ) : (
-                    log.image_url && (
+                    parseImageUrls(log.image_url).length > 0 && (
                       <div className="w-full h-64 bg-stone-950 overflow-hidden relative border-b border-stone-700">
-                        <img src={log.image_url} alt={log.fish_name} className="w-full h-full object-cover" />
+                        <ImageCarousel imageUrls={parseImageUrls(log.image_url)} alt={log.fish_name} />
                       </div>
                     )
                   )}

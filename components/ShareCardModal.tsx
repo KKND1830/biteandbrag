@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { getUserLevelInfo } from '../utils/level'
+import { parseImageUrls } from '../utils/image'
 
 interface ShareCardModalProps {
   log: any
@@ -20,6 +21,8 @@ export default function ShareCardModal({ log, catchCount, onClose }: ShareCardMo
   const lvlInfo = getUserLevelInfo(catchCount, totalPoints)
   const hasCoords = log.latitude !== null && log.longitude !== null && log.latitude !== undefined && log.longitude !== undefined
   const isSpot = log.fish_name?.startsWith('📍')
+  const imageUrls = parseImageUrls(log.image_url)
+  const displayImageUrl = imageUrls.length > 0 ? imageUrls[0] : null
 
   useEffect(() => {
     const drawCard = async () => {
@@ -110,7 +113,7 @@ export default function ShareCardModal({ log, catchCount, onClose }: ShareCardMo
           ctx.restore()
         }
 
-        if (log.image_url) {
+        if (displayImageUrl) {
           try {
             await new Promise<void>((resolve) => {
               const img = new Image()
@@ -167,13 +170,13 @@ export default function ShareCardModal({ log, catchCount, onClose }: ShareCardMo
               }
               img.onerror = () => {
                 clearTimeout(timeoutId)
-                console.warn('Image load error:', log.image_url)
+                console.warn('Image load error:', displayImageUrl)
                 setImageError(true)
                 drawPlaceholder('ภาพถ่ายปลา (ติดปัญหา CORS รูปภาพ)')
                 resolve()
               }
               // ใช้ Timestamp ป้องกันปัญหา Cache CORS ของเบราว์เซอร์
-              img.src = `${log.image_url}${log.image_url.includes('?') ? '&' : '?'}t=${Date.now()}`
+              img.src = `${displayImageUrl}${displayImageUrl.includes('?') ? '&' : '?'}t=${Date.now()}`
             })
           } catch (e) {
             drawPlaceholder('ภาพถ่ายปลา (ไม่สามารถโหลดได้)')
@@ -395,7 +398,7 @@ export default function ShareCardModal({ log, catchCount, onClose }: ShareCardMo
     drawCard()
   }, [
     log.id,
-    log.image_url,
+    displayImageUrl,
     log.fish_name,
     log.location_name,
     log.weight,

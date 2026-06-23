@@ -18,7 +18,7 @@ export default function AddLog() {
   const [length, setLength] = useState('')
   const [location, setLocation] = useState('')
   const [lure, setLure] = useState('')
-  const [imageFile, setImageFile] = useState<File | null>(null)
+  const [imageFiles, setImageFiles] = useState<File[]>([])
   const [message, setMessage] = useState('')
   const [loading, setLoading] = useState(false)
   const [latitude, setLatitude] = useState('')
@@ -79,24 +79,33 @@ export default function AddLog() {
     const authorName = profData?.display_name || (user.email ? user.email.split('@')[0] : 'นักตกปลา')
 
     let publicImageUrl = null
+    const uploadedUrls: string[] = []
 
-    if (imageFile) {
-      const fileExt = imageFile.name.split('.').pop()
-      const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`
-      const filePath = `${user.id}/${fileName}`
+    if (imageFiles.length > 0) {
+      for (const file of imageFiles) {
+        const fileExt = file.name.split('.').pop()
+        const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`
+        const filePath = `${user.id}/${fileName}`
 
-      const { error: uploadError } = await supabase.storage
-        .from('bite-images')
-        .upload(filePath, imageFile)
+        const { error: uploadError } = await supabase.storage
+          .from('bite-images')
+          .upload(filePath, file)
 
-      if (uploadError) {
-        setMessage('❌ อัปโหลดรูปภาพไม่สำเร็จ: ' + uploadError.message)
-        setLoading(false)
-        return
+        if (uploadError) {
+          setMessage('❌ อัปโหลดรูปภาพไม่สำเร็จ: ' + uploadError.message)
+          setLoading(false)
+          return
+        }
+
+        const { data } = supabase.storage.from('bite-images').getPublicUrl(filePath)
+        uploadedUrls.push(data.publicUrl)
       }
 
-      const { data } = supabase.storage.from('bite-images').getPublicUrl(filePath)
-      publicImageUrl = data.publicUrl
+      if (uploadedUrls.length === 1) {
+        publicImageUrl = uploadedUrls[0]
+      } else if (uploadedUrls.length > 1) {
+        publicImageUrl = JSON.stringify(uploadedUrls)
+      }
     }
 
     const finalFishName = postType === 'spot' 
@@ -252,10 +261,34 @@ export default function AddLog() {
 
           <div>
             <label className="block mb-1 text-sm text-stone-400">
-              {postType === 'catch' ? 'รูปภาพผลงาน' : 'รูปภาพหมายตกปลา'}
+              {postType === 'catch' ? 'รูปภาพผลงาน (อัปโหลดได้สูงสุด 5 รูป)' : 'รูปภาพบรรยากาศหมายสวย (อัปโหลดได้สูงสุด 5 รูป)'}
             </label>
-            <input type="file" accept="image/*" onChange={(e) => setImageFile(e.target.files ? e.target.files[0] : null)}
-              className="w-full p-2 bg-stone-700 rounded text-stone-300 text-sm file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-yellow-600 file:text-stone-900 hover:file:bg-yellow-500" />
+            <input 
+              type="file" 
+              accept="image/*" 
+              multiple 
+              onChange={(e) => {
+                const files = Array.from(e.target.files || [])
+                if (files.length > 5) {
+                  alert('สามารถอัปโหลดรูปภาพได้สูงสุด 5 รูปครับ')
+                  e.target.value = ''
+                  setImageFiles([])
+                  return
+                }
+                setImageFiles(files)
+              }}
+              className="w-full p-2 bg-stone-700 rounded text-stone-300 text-sm file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-yellow-600 file:text-stone-900 hover:file:bg-yellow-500" 
+            />
+            {imageFiles.length > 0 && (
+              <div className="mt-2 text-xs text-stone-400 flex flex-wrap gap-1.5">
+                <span>เลือกแล้ว {imageFiles.length} รูป:</span>
+                {imageFiles.map((file, idx) => (
+                  <span key={idx} className="bg-stone-900 px-2 py-0.5 rounded text-stone-300 border border-stone-850">
+                    {file.name}
+                  </span>
+                ))}
+              </div>
+            )}
           </div>
 
           <button type="submit" disabled={loading} className="w-full py-3 mt-4 bg-yellow-600 hover:bg-yellow-500 text-stone-900 font-bold rounded transition-colors disabled:bg-stone-600">
