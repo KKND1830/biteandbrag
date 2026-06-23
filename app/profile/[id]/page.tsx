@@ -9,6 +9,7 @@ import ShareCardModal from '../../../components/ShareCardModal'
 import { AVATARS, getAvatarPath } from '../../../utils/avatar'
 import { parseImageUrls } from '../../../utils/image'
 import ImageCarousel from '../../../components/ImageCarousel'
+import InboxModal from '../../../components/InboxModal'
 
 const CardMap = dynamic(() => import('../../../components/CardMap'), {
   ssr: false,
@@ -38,6 +39,13 @@ export default function UserProfile() {
   const [sharingLog, setSharingLog] = useState<any | null>(null)
   const [sharingLogCatchCount, setSharingLogCatchCount] = useState<number>(0)
 
+  // Inbox / Notification States
+  const [isInboxOpen, setIsInboxOpen] = useState(false)
+  const [inboxInitialTab, setInboxInitialTab] = useState<'notifications' | 'chat'>('notifications')
+  const [inboxTargetUserId, setInboxTargetUserId] = useState<string | null>(null)
+  const [unreadNotifCount, setUnreadNotifCount] = useState(0)
+  const [unreadMsgCount, setUnreadMsgCount] = useState(0)
+
   useEffect(() => {
     initProfile()
   }, [profileId])
@@ -50,7 +58,35 @@ export default function UserProfile() {
       setCurrentUserId(user.id)
     }
     await fetchProfileData()
+    await fetchUnreadCounts()
     setLoading(false)
+  }
+
+  const fetchUnreadCounts = async () => {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return
+
+    // 1. ดึงจำนวนการแจ้งเตือนที่ยังไม่ได้อ่าน
+    const { count: notifCount, error: notifErr } = await supabase
+      .from('notifications')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', user.id)
+      .eq('is_read', false)
+
+    if (!notifErr) {
+      setUnreadNotifCount(notifCount || 0)
+    }
+
+    // 2. ดึงจำนวนข้อความแชตที่ยังไม่ได้อ่าน
+    const { count: msgCount, error: msgErr } = await supabase
+      .from('messages')
+      .select('*', { count: 'exact', head: true })
+      .eq('receiver_id', user.id)
+      .eq('is_read', false)
+
+    if (!msgErr) {
+      setUnreadMsgCount(msgCount || 0)
+    }
   }
 
   const fetchProfileData = async () => {
@@ -131,8 +167,22 @@ export default function UserProfile() {
       await supabase.from('likes').delete().eq('user_id', currentUserId).eq('log_id', logId)
     } else {
       await supabase.from('likes').insert([{ user_id: currentUserId, log_id: logId }])
+
+      // สร้างข้อความแจ้งเตือน (Notification) ไปยังเจ้าของโพสต์
+      const targetLog = logs.find(l => l.id === logId)
+      if (targetLog && targetLog.user_id && targetLog.user_id !== currentUserId) {
+        await supabase.from('notifications').insert([
+          {
+            user_id: targetLog.user_id,
+            sender_id: currentUserId,
+            type: 'like',
+            log_id: logId
+          }
+        ])
+      }
     }
     await fetchProfileData()
+    await fetchUnreadCounts()
   }
 
   const handleAddComment = async (logId: string) => {
@@ -144,19 +194,35 @@ export default function UserProfile() {
       return
     }
 
-    const { error } = await supabase.from('comments').insert([
+    const { data: insertedComment, error } = await supabase.from('comments').insert([
       {
         log_id: logId,
         user_id: currentUserId,
         content: content.trim()
       }
-    ])
+    ]).select()
 
     if (error) {
       alert('ไม่สามารถเพิ่มความคิดเห็นได้: ' + error.message)
     } else {
       setCommentInputs(prev => ({ ...prev, [logId]: '' }))
       await fetchProfileData()
+
+      // สร้างข้อความแจ้งเตือน (Notification) ไปยังเจ้าของโพสต์
+      const targetLog = logs.find(l => l.id === logId)
+      if (targetLog && targetLog.user_id && targetLog.user_id !== currentUserId) {
+        await supabase.from('notifications').insert([
+          {
+            user_id: targetLog.user_id,
+            sender_id: currentUserId,
+            type: 'comment',
+            log_id: logId,
+            comment_id: insertedComment?.[0]?.id,
+            content: content.trim()
+          }
+        ])
+      }
+      await fetchUnreadCounts()
     }
   }
 
@@ -253,7 +319,47 @@ export default function UserProfile() {
           </Link>
           
           <div className="flex items-center gap-3">
-            <Link href="/" className="bg-stone-850 hover:bg-stone-800 border border-stone-700 text-stone-300 text-xs font-bold py-2 px-3.5 rounded transition-all hover:text-white">
+            {currentUserId && (
+              <>
+                {/* 🔔 ปุ่มแจ้งเตือน */}
+                <button
+                  onClick={() => {
+                    setInboxInitialTab('notifications')
+                    setInboxTargetUserId(null)
+                    setIsInboxOpen(true)
+                  }}
+                  className="relative text-stone-400 hover:text-white text-base p-1.5 cursor-pointer transition-colors"
+                  title="การแจ้งเตือน"
+                >
+                  🔔
+                  {unreadNotifCount > 0 && (
+                    <span className="absolute -top-0.5 -right-0.5 bg-red-500 text-white font-extrabold text-[8px] w-4.5 h-4.5 rounded-full flex items-center justify-center shrink-0 border border-stone-900 shadow-sm animate-pulse">
+                      {unreadNotifCount}
+                    </span>
+                  )}
+                </button>
+
+                {/* ✉️ ปุ่มแชต */}
+                <button
+                  onClick={() => {
+                    setInboxInitialTab('chat')
+                    setInboxTargetUserId(null)
+                    setIsInboxOpen(true)
+                  }}
+                  className="relative text-stone-400 hover:text-white text-base p-1.5 cursor-pointer transition-colors"
+                  title="ข้อความส่วนตัว"
+                >
+                  ✉️
+                  {unreadMsgCount > 0 && (
+                    <span className="absolute -top-0.5 -right-0.5 bg-red-500 text-white font-extrabold text-[8px] w-4.5 h-4.5 rounded-full flex items-center justify-center shrink-0 border border-stone-900 shadow-sm animate-pulse">
+                      {unreadMsgCount}
+                    </span>
+                  )}
+                </button>
+              </>
+            )}
+
+            <Link href="/" className="bg-stone-850 hover:bg-stone-800 border border-stone-700 text-stone-300 text-xs font-bold py-2 px-3.5 rounded transition-all hover:text-white cursor-pointer">
               ⬅️ กลับหน้าหลัก
             </Link>
           </div>
@@ -322,6 +428,21 @@ export default function UserProfile() {
                     className="text-yellow-500 hover:text-yellow-400 text-xs transition-colors flex items-center gap-1 cursor-pointer font-bold bg-yellow-500/10 border border-yellow-500/30 px-3 py-1.5 rounded-full shadow-sm"
                   >
                     🛡️ เปลี่ยนอวตาร์เครื่องยศ
+                  </button>
+                </div>
+              )}
+
+              {!isOwner && currentUserId && (
+                <div className="flex justify-center sm:justify-start pt-1">
+                  <button 
+                    onClick={() => {
+                      setInboxInitialTab('chat')
+                      setInboxTargetUserId(profileId)
+                      setIsInboxOpen(true)
+                    }}
+                    className="text-yellow-500 hover:text-yellow-400 text-xs transition-colors flex items-center gap-1 cursor-pointer font-bold bg-yellow-500/10 border border-yellow-500/30 px-3.5 py-1.5 rounded-full shadow-sm hover:bg-yellow-500/20"
+                  >
+                    💬 ส่งข้อความส่วนตัว (Chat)
                   </button>
                 </div>
               )}
@@ -467,7 +588,7 @@ export default function UserProfile() {
               const hasLiked = log.likes?.some((like: any) => like.user_id === currentUserId);
 
               return (
-                <div key={log.id} className={`overflow-hidden bg-stone-800 rounded-lg shadow-xl transition-all duration-300 ${lvlInfo.frameClass}`}>
+                <div key={log.id} id={`log-${log.id}`} className={`overflow-hidden bg-stone-800 rounded-lg shadow-xl transition-all duration-300 ${lvlInfo.frameClass}`}>
                   {/* Photo & Mini Map Map */}
                   {currentUserId && (parseImageUrls(log.image_url).length > 0 || (log.latitude && log.longitude)) ? (
                     <div className="flex flex-col sm:flex-row h-[360px] sm:h-64 bg-stone-950 overflow-hidden relative border-b border-stone-700">
@@ -706,6 +827,20 @@ export default function UserProfile() {
           log={sharingLog} 
           catchCount={sharingLogCatchCount} 
           onClose={() => setSharingLog(null)} 
+        />
+      )}
+
+      {/* หน้าต่างกล่องข้อความ / แชต */}
+      {isInboxOpen && currentUserId && (
+        <InboxModal
+          currentUserId={currentUserId}
+          initialTab={inboxInitialTab}
+          targetUserId={inboxTargetUserId}
+          onClose={() => {
+            setIsInboxOpen(false)
+            fetchUnreadCounts()
+          }}
+          onRefreshCounts={fetchUnreadCounts}
         />
       )}
     </main>
