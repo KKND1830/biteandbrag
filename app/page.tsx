@@ -10,6 +10,7 @@ import { getAvatarPath } from '../utils/avatar'
 import { parseImageUrls } from '../utils/image'
 import ImageCarousel from '../components/ImageCarousel'
 import InboxModal from '../components/InboxModal'
+import EventBanner from '../components/EventBanner'
 
 const CardMap = dynamic(() => import('../components/CardMap'), {
   ssr: false,
@@ -431,6 +432,9 @@ export default function Home() {
             <p className="text-stone-400 text-sm">แชร์รูปปลา หมายเด็ด และเหยื่อหมานของเหล่ายอดฝีมือ</p>
           </div>
         </div>
+        
+        {/* 🏆 ป้ายประกาศกิจกรรมประจำสุดสัปดาห์ */}
+        <EventBanner currentUserId={currentUserId} />
         
         {currentUserEmail && (
           <div className="mb-6 bg-stone-800/40 border border-stone-700/50 rounded-lg p-4 shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-3">
